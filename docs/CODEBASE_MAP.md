@@ -27,7 +27,7 @@ Fluxo de uma action da equipe: `equipe-form.tsx` → `equipe.actions.ts` (permis
 
 | Arquivo | Papel |
 |---|---|
-| `0000_fundacao.sql` | Tabelas Better Auth (`user`, `session`, `account`, `verification`), `lava_jatos`, `membros`, `convites`, `credenciais_lavador`, grants da role de runtime |
+| `0000_fundacao.sql` | Tabelas Better Auth (`user`, `session`, `account`, `verification`), `lava_jatos`, `membros`, `convites`, `credenciais_lavador` (sem grants: o DML do `lavaos_app` vem do `ALTER DEFAULT PRIVILEGES` em `db-local-init.sql`) |
 | `0001_org_plugin_campos.sql` | Colunas `logo`/`metadata` exigidas pelo plugin de organização |
 | `0002_pin_sessao_e_limite_origem.sql` | Vínculo sessão ↔ credencial PIN (`pin_member_id`, `pin_credential_version`) e limite de tentativas por origem |
 | `meta/` | Journal e snapshots do drizzle-kit |

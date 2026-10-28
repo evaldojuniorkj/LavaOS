@@ -72,6 +72,7 @@ export async function verifyAttempt(scope: TenantScope, usuario: string, pin: st
     const [c] = await selectCredential(tx, scope, usuario).for('update', { of: credenciaisLavador });
     if (!c || !c.ativo || c.perfil !== 'lavador') return dummy();
     if (isPinBlocked(c.bloqueadoAte, now)) {
+      await hasher.verify(pin, c.pinHash); // resultado descartado: mesmo custo das outras falhas, o tempo não revela o usuário
       return { ok: false, code: 'PIN_BLOCKED', retryAfterSeconds: Math.ceil((c.bloqueadoAte!.getTime() - now.getTime()) / 1000) };
     }
     if (await hasher.verify(pin, c.pinHash)) {

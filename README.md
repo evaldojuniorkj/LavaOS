@@ -68,4 +68,5 @@ A Fundação entrega só o necessário para provar o acesso dos perfis: tenant (
 
 - O proxy reverso deve **sobrescrever** `X-Real-IP` com o endereço do socket (nginx: `proxy_set_header X-Real-IP $remote_addr`), e o app deve ouvir só atrás dele (loopback). O limite de PIN por origem confia nesse cabeçalho.
 - A revogação de sessão é global por usuário: desativar alguém em um lava jato derruba as sessões dele em todos.
-- Segredos do CI são efêmeros (gerados por execução, banco descartado com o job); produção usa segredos próprios, nunca os de `.env.example` ou do compose local.
+- No CI, segredos de app/auth e senhas/PINs de teste são gerados por execução; já a senha do superusuário Postgres e as senhas das roles (`db-local-init.sql`) são valores descartáveis fixos, versionados no repositório, seguros só porque o container é descartado com o job e escuta apenas em loopback. Produção usa segredos próprios, nunca os de `.env.example`, do compose local ou do CI.
+- Um banco de produção criado só com `db:migrate` não dá nenhum grant à role de runtime: aplique os grants de `scripts/db-local-init.sql` (`GRANT USAGE` no schema e `ALTER DEFAULT PRIVILEGES` de DML para `lavaos_app`) ou equivalentes antes de subir o app.

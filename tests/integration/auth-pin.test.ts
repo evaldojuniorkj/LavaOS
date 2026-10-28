@@ -158,7 +158,9 @@ describe('bloqueio persistente', () => {
   it('quinto erro bloqueia por 15 minutos; PIN certo continua bloqueado até o relógio liberar', () =>
     run(async (db, f) => {
       const clock = relogio();
-      const http = createHttp(createAuth({ now: () => clock.t }).handler);
+      let verificacoes = 0;
+      const hasher: PinHasher = { hash: hashSecret, verify: (pin, hash) => (verificacoes++, verifySecret(pin, hash)) };
+      const http = createHttp(createAuth({ now: () => clock.t, hasher }).handler);
       for (let i = 0; i < 4; i++) await http.post(PIN, { usuario: f.lavador.usuario, pin: '1111' });
       const quinto = await http.post(PIN, { usuario: f.lavador.usuario, pin: '1111' });
       const desconhecido = await resposta(await http.post(PIN, { usuario: 'ninguem', pin: '1111' }));
@@ -167,7 +169,9 @@ describe('bloqueio persistente', () => {
       expect(await credencial(db, f.a.membros.lavador.memberId)).toMatchObject({ errosConsecutivos: 5, bloqueadoAte: new Date(clock.t.getTime() + QUINZE_MIN) });
 
       clock.avanca(QUINZE_MIN - 1);
+      verificacoes = 0;
       const bloqueado = await http.post(PIN, { usuario: f.lavador.usuario, pin: f.lavador.pin });
+      expect(verificacoes).toBe(1); // bloqueado custa o mesmo verify que desconhecido: tempo não revela o usuário
       expect(bloqueado.headers.getSetCookie()).toEqual([]);
       expect(await resposta(bloqueado)).toEqual(desconhecido);
 

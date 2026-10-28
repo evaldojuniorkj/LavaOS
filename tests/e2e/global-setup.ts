@@ -20,7 +20,7 @@ export default async function globalSetup() {
     await pool.query('DROP SCHEMA IF EXISTS public CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE; CREATE SCHEMA public;');
     await pool.query('GRANT USAGE ON SCHEMA public TO lavaos_app');
     await migrate(drizzle(pool), { migrationsFolder: 'drizzle' });
-    // migrations concedem DML ao lavaos_app; o owner pode inserir as fixtures
+    // DML do lavaos_app vem do ALTER DEFAULT PRIVILEGES de scripts/db-local-init.sql (não das migrations); o owner insere as fixtures
     const senha = `e2e-${randomUUID()}`;
     const pin = `0${randomInt(100, 1000)}`; // zero inicial de propósito
     const hashSenha = await hashPassword(senha);

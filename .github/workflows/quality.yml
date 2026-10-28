@@ -22,7 +22,7 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_PASSWORD: postgres_ci_efemero # container descartado ao fim do job, só acessível no runner
+          POSTGRES_PASSWORD: postgres_ci_efemero # valor fixo versionado; seguro só porque o container é descartado ao fim do job e escuta em loopback
         ports:
           - 127.0.0.1:55432:5432
         options: >-
@@ -53,6 +53,6 @@ jobs:
           MIGRATION_DATABASE_URL: postgres://lavaos_owner:owner_local_dev@127.0.0.1:55432/lavaos_dev
 
       - run: pnpm exec playwright install --with-deps chromium
-      # lint → typecheck → test → build → E2E. Segredos de auth, senhas e PINs são gerados por execução;
+      # lint → typecheck → test → build → E2E. Segredos de auth e senhas/PINs de teste são gerados por execução (senhas das roles são fixas);
       # com CI=true o Playwright não grava traces e nenhum artefato (test-results/) é publicado.
       - run: pnpm verify:foundation
