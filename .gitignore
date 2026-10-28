@@ -1,2 +1,12 @@
 .superpowers/
 .DS_Store
+.env*
+!.env.example
+.next/
+node_modules/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+*.swp
+*.swo
