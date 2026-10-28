@@ -16,6 +16,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test:unit": "vitest run",
     "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
     "db:generate": "node --env-file-if-exists=.env.local ./node_modules/drizzle-kit/bin.cjs generate",
     "db:migrate": "node --env-file-if-exists=.env.local ./node_modules/drizzle-kit/bin.cjs migrate",
     "db:seed:dev": "node --env-file-if-exists=.env.local scripts/seed-dev.ts"
@@ -31,6 +32,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "24.19.2",
     "@types/pg": "8.23.1",

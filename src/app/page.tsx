@@ -1,8 +1,7 @@
-export default function Home() {
-  return (
-    <main className="mx-auto max-w-xl p-8">
-      <h1 className="text-3xl font-bold">LavaOS</h1>
-      <p className="mt-2 text-slate-600">Gestão para lava jato.</p>
-    </main>
-  );
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { contextoOuNull } from '@/lib/auth/context';
+
+export default async function Home() {
+  redirect((await contextoOuNull(await headers())) ? '/inicio' : '/login');
 }

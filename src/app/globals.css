@@ -1,1 +1,19 @@
 @import 'tailwindcss';
+
+/* Paleta do lava jato: tinta azul-petróleo, branco de enxágue, azul de jato d'água; foco em amarelo de segurança. */
+@theme {
+  --color-tinta: #0f2a3a;
+  --color-enxague: #eef4f7;
+  --color-linha: #b7c8d2;
+  --color-agua: #0a6488;
+  --color-agua-escura: #084d69;
+  --color-perigo: #b42318;
+  --color-sinal: #f2b705;
+  --color-suave: #4a6272;
+}
+
+/* Foco visível e grosso em tudo que é interativo, só por teclado. */
+:where(a, button, input, select, [tabindex]):focus-visible {
+  outline: 3px solid var(--color-sinal);
+  outline-offset: 2px;
+}

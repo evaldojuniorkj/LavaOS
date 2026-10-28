@@ -71,3 +71,13 @@ export function createTenantGuards(deps: { readSession: SessionReader; database?
 export const { requireTenantContext, requirePermission } = createTenantGuards({
   readSession: (headers) => getAuth().api.getSession({ headers }),
 });
+
+/** Para telas: contexto válido ou null (sem sessão, sessão revogada, sem tenant ativo). Outros erros sobem. */
+export async function contextoOuNull(headers: Headers): Promise<TenantContext | null> {
+  try {
+    return await requireTenantContext(headers);
+  } catch (err) {
+    if (err instanceof AcessoNegadoError) return null;
+    throw err;
+  }
+}

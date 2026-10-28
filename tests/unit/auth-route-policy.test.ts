@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isAuthHttpPathAllowed } from '@/lib/auth/route-policy';
+import { destinoPosLogin, isAuthHttpPathAllowed } from '@/lib/auth/route-policy';
 
 describe('isAuthHttpPathAllowed', () => {
   it.each([
@@ -50,4 +50,14 @@ describe('isAuthHttpPathAllowed', () => {
     expect(isAuthHttpPathAllowed('post', '/sign-in/email')).toBe(true);
     expect(isAuthHttpPathAllowed('get', '/sign-up/email')).toBe(false);
   });
+});
+
+describe('destinoPosLogin', () => {
+  it.each(['/inicio', '/configuracoes/equipe'])('aceita caminho interno conhecido %s', (p) => expect(destinoPosLogin(p)).toBe(p));
+
+  it.each([
+    undefined, '', '/', '//evil.example', '/\\evil.example', '\\evil.example', 'https://evil.example', 'javascript:alert(1)',
+    '/inicio/', '/inicio?x=1', '/inicio#a', '/INICIO', '/inicio/../api/auth/sign-out', '/%2Finicio', ' /inicio', '/api/auth/get-session',
+    'toString', '__proto__', ['/inicio', '/configuracoes/equipe'],
+  ])('qualquer outro valor vai para /inicio: %j', (p) => expect(destinoPosLogin(p)).toBe('/inicio'));
 });
