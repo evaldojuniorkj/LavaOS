@@ -15,6 +15,13 @@
       "when": 1793155885808,
       "tag": "0001_org_plugin_campos",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793156658924,
+      "tag": "0002_pin_sessao_e_limite_origem",
+      "breakpoints": true
     }
   ]
 }

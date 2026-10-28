@@ -91,7 +91,7 @@ describe('requireTenantContext', () => {
 
   it('nega membro inativo imediatamente', () =>
     run(async (db, f) => {
-      const m = f.a.membros.lavador;
+      const m = f.a.membros.recepcao; // lavador exige sessão PIN (auth-pin.test.ts)
       const g = guards(db, await seedSession(db, m.userId, f.a.tenantId));
       await expect(g.requireTenantContext(headers)).resolves.toBeDefined();
       await db.update(membros).set({ ativo: false }).where(eq(membros.id, m.memberId));

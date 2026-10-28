@@ -1,6 +1,6 @@
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { hashSecret } from '@/lib/auth/credentials';
-import { account, user } from '@/lib/db/schema';
+import { account, credenciaisLavador, user } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { testUrls } from './db';
 import { createFoundationFixtures, type FoundationFixtures } from './fixtures';
@@ -20,9 +20,11 @@ export type AuthFixtures = FoundationFixtures & {
   /** Senha temporária comum a todas as contas de staff criadas aqui. */
   senha: string;
   emailDe(userId: string): string;
+  /** Login PIN do lavador de A; o lavador de B tem o mesmo usuário com outro PIN. */
+  lavador: { usuario: string; pin: string; pinB: string };
 };
 
-/** Fixtures da Fundação + conta de e-mail/senha para todo staff (lavador fica sem senha). */
+/** Fixtures da Fundação + conta de e-mail/senha para todo staff; lavador só tem PIN e e-mail técnico. */
 export async function createAuthFixtures(db: Database): Promise<AuthFixtures> {
   const f = await createFoundationFixtures(db);
   const senha = `senha-${crypto.randomUUID()}`;
@@ -30,7 +32,13 @@ export async function createAuthFixtures(db: Database): Promise<AuthFixtures> {
   staff.push(f.multi.userId);
   const hash = await hashSecret(senha);
   await db.insert(account).values(staff.map((userId) => ({ userId, accountId: userId, providerId: 'credential', password: hash })));
+  const lavador = { usuario: 'lavador.a', pin: '0123', pinB: '9999' };
+  for (const [t, pin] of [[f.a, lavador.pin], [f.b, lavador.pinB]] as const) {
+    const { userId, memberId } = t.membros.lavador;
+    await db.update(user).set({ email: `${userId}@lavador.invalid` }).where(eq(user.id, userId));
+    await db.insert(credenciaisLavador).values({ tenantId: t.tenantId, membroId: memberId, usuarioNormalizado: lavador.usuario, pinHash: await hashSecret(pin) });
+  }
   const rows = await db.select({ id: user.id, email: user.email }).from(user).where(inArray(user.id, staff));
   const emails = new Map(rows.map((r) => [r.id, r.email]));
-  return { ...f, senha, emailDe: (userId) => emails.get(userId)! };
+  return { ...f, senha, emailDe: (userId) => emails.get(userId)!, lavador };
 }

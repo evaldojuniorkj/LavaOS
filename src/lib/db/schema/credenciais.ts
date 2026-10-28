@@ -1,4 +1,4 @@
-import { check, foreignKey, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { check, foreignKey, integer, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { lavaJatos, membros } from './equipe';
 
@@ -23,4 +23,16 @@ export const credenciaisLavador = pgTable(
     foreignKey({ name: 'credenciais_membro_fk', columns: [t.tenantId, t.membroId], foreignColumns: [membros.tenantId, membros.id] }).onDelete('cascade'),
     check('credenciais_versao_ck', sql`${t.versao} > 0`),
   ],
+);
+
+/** Limite de tentativas de login PIN por IP do cliente, em janela fixa (persistente: sobrevive a restart e vale entre instâncias). */
+export const tentativasPinOrigem = pgTable(
+  'tentativas_pin_origem',
+  {
+    tenantId: uuid('tenant_id').notNull().references(() => lavaJatos.id, { onDelete: 'cascade' }),
+    ip: text('ip').notNull(),
+    janelaInicio: timestamp('janela_inicio', { withTimezone: true }).notNull(),
+    tentativas: integer('tentativas').notNull(),
+  },
+  (t) => [primaryKey({ name: 'tentativas_pin_origem_pk', columns: [t.tenantId, t.ip] })],
 );

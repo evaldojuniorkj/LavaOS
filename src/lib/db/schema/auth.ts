@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 // Tabelas core do Better Auth 1.7.7 (CLI, ids uuid). Identidade é global; o tenant vem de `membros`.
 const id = () => uuid('id').defaultRandom().primaryKey();
@@ -26,6 +26,9 @@ export const session = pgTable(
     userAgent: text('user_agent'),
     userId: uuid('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
     activeOrganizationId: uuid('active_organization_id'),
+    // server-only (plugin lavador-pin, returned: false): membro e versão da credencial verificada no login PIN
+    pinMemberId: uuid('pin_member_id'),
+    pinCredentialVersion: integer('pin_credential_version'),
   },
   (t) => [index('session_user_id_idx').on(t.userId)],
 );
