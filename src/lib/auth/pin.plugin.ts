@@ -9,7 +9,8 @@ import { consumeOriginAttempt, resolvePilotScope, verifyAttempt, type PinHasher 
 import { normalizeUsername } from './pin.rules';
 
 const TRINTA_DIAS = 60 * 60 * 24 * 30;
-const INVALIDO = { code: 'INVALID_CREDENTIALS', message: 'Usuário ou PIN inválidos.' };
+// Uma resposta para toda falha (PIN errado, desconhecido, inativo, bloqueado): bloqueio não revela que o usuário existe.
+const INVALIDO = { code: 'INVALID_CREDENTIALS', message: 'Usuário ou PIN inválidos. Após 5 erros seguidos o acesso fica bloqueado por 15 minutos.' };
 
 // strict: tenant/organização no corpo é recusado; o tenant vem de LAVAOS_PILOT_SLUG.
 const corpo = z.strictObject({ usuario: z.string().max(200), pin: z.string().max(200) });
@@ -48,14 +49,6 @@ export function lavadorPinPlugin(deps: PinPluginDeps = {}) {
           throw new APIError('TOO_MANY_REQUESTS', { code: 'TOO_MANY_ATTEMPTS', message: 'Muitas tentativas. Aguarde alguns minutos.' });
         }
         const r = await verifyAttempt(scope, normalizeUsername(body.data.usuario), body.data.pin, agora, hasher);
-        if (!r.ok && r.code === 'PIN_BLOCKED') {
-          const minutos = Math.ceil(r.retryAfterSeconds! / 60);
-          throw new APIError(
-            'TOO_MANY_REQUESTS',
-            { code: 'PIN_BLOCKED', message: `PIN bloqueado temporariamente. Tente de novo em ${minutos} minuto${minutos > 1 ? 's' : ''}.` },
-            { 'retry-after': String(r.retryAfterSeconds) },
-          );
-        }
         if (!r.ok) throw new APIError('UNAUTHORIZED', INVALIDO);
         await deps.aposVerificar?.();
         // A sessão guarda a versão verificada acima; um reset depois disso a torna inválida no guard.

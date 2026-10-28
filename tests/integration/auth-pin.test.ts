@@ -14,7 +14,10 @@ import { createHttp } from '../helpers/http';
 const TRINTA_DIAS = 30 * 24 * 60 * 60;
 const QUINZE_MIN = 15 * 60 * 1000;
 const PIN = '/lavador-pin/sign-in';
-const INVALIDO = 'Usuário ou PIN inválidos.';
+const INVALIDO = 'Usuário ou PIN inválidos. Após 5 erros seguidos o acesso fica bloqueado por 15 minutos.';
+
+/** Status, headers e corpo exatos: bloqueado e desconhecido precisam ser indistinguíveis. */
+const resposta = async (r: Response) => ({ status: r.status, headers: [...r.headers], body: await r.text() });
 
 const run = (fn: (db: Database, f: AuthFixtures) => Promise<void>) =>
   withTestDatabase(async (db) => fn(db, await createAuthFixtures(db)));
@@ -36,8 +39,9 @@ describe('login PIN do lavador', () => {
   it('hash não guarda o PIN em texto puro e só o PIN certo entra', () =>
     run(async (db, f) => {
       const c = await credencial(db, f.a.membros.lavador.memberId);
-      expect(c.pinHash).not.toContain(f.lavador.pin);
+      expect(c.pinHash).toMatch(/^[0-9a-f]{32}:[0-9a-f]{128}$/); // salt:chave do scrypt do Better Auth
       expect(await verifySecret(f.lavador.pin, c.pinHash)).toBe(true);
+      expect(await verifySecret(f.lavador.pinB, c.pinHash)).toBe(false);
       for (const pin of ['1230', '123', '0124', '00123']) {
         const res = await createHttp().post(PIN, { usuario: f.lavador.usuario, pin });
         expect(res.status, pin).toBe(401);
@@ -157,14 +161,15 @@ describe('bloqueio persistente', () => {
       const http = createHttp(createAuth({ now: () => clock.t }).handler);
       for (let i = 0; i < 4; i++) await http.post(PIN, { usuario: f.lavador.usuario, pin: '1111' });
       const quinto = await http.post(PIN, { usuario: f.lavador.usuario, pin: '1111' });
-      expect(quinto.status).toBe(429);
-      expect(await quinto.json()).toMatchObject({ code: 'PIN_BLOCKED', message: expect.stringContaining('bloqueado') });
+      const desconhecido = await resposta(await http.post(PIN, { usuario: 'ninguem', pin: '1111' }));
+      expect(desconhecido).toMatchObject({ status: 401, body: JSON.stringify({ code: 'INVALID_CREDENTIALS', message: INVALIDO }) });
+      expect(await resposta(quinto)).toEqual(desconhecido);
       expect(await credencial(db, f.a.membros.lavador.memberId)).toMatchObject({ errosConsecutivos: 5, bloqueadoAte: new Date(clock.t.getTime() + QUINZE_MIN) });
 
       clock.avanca(QUINZE_MIN - 1);
       const bloqueado = await http.post(PIN, { usuario: f.lavador.usuario, pin: f.lavador.pin });
-      expect(bloqueado.status).toBe(429);
       expect(bloqueado.headers.getSetCookie()).toEqual([]);
+      expect(await resposta(bloqueado)).toEqual(desconhecido);
 
       clock.avanca(1);
       expect((await http.post(PIN, { usuario: f.lavador.usuario, pin: f.lavador.pin })).status).toBe(200);
@@ -184,12 +189,12 @@ describe('bloqueio persistente', () => {
   it('cinco erros concorrentes deixam contador 5 e bloqueio; a sexta com PIN certo não autentica', () =>
     run(async (db, f) => {
       const res = await Promise.all(Array.from({ length: 5 }, () => createHttp().post(PIN, { usuario: f.lavador.usuario, pin: '1111' })));
-      expect(res.map((r) => r.status).sort()).toEqual([401, 401, 401, 401, 429]);
+      expect(res.map((r) => r.status)).toEqual([401, 401, 401, 401, 401]);
       const c = await credencial(db, f.a.membros.lavador.memberId);
       expect(c.errosConsecutivos).toBe(5);
       expect(c.bloqueadoAte!.getTime()).toBeGreaterThan(Date.now());
       const sexta = await createHttp().post(PIN, { usuario: f.lavador.usuario, pin: f.lavador.pin });
-      expect(sexta.status).toBe(429);
+      expect(sexta.status).toBe(401);
       expect(sexta.headers.getSetCookie()).toEqual([]);
       expect(await db.select().from(session).where(eq(session.userId, f.a.membros.lavador.userId))).toEqual([]);
     }));
@@ -199,7 +204,9 @@ describe('bloqueio persistente', () => {
       const primeira = createHttp(createAuth().handler);
       for (let i = 0; i < 5; i++) await primeira.post(PIN, { usuario: f.lavador.usuario, pin: '1111' });
       const reiniciada = createHttp(createAuth().handler);
-      expect((await reiniciada.post(PIN, { usuario: f.lavador.usuario, pin: f.lavador.pin })).status).toBe(429);
+      const res = await reiniciada.post(PIN, { usuario: f.lavador.usuario, pin: f.lavador.pin });
+      expect(res.status).toBe(401);
+      expect(res.headers.getSetCookie()).toEqual([]);
     }));
 
   it('limite por origem é persistente, atômico e ignora x-forwarded-for do cliente', () =>
