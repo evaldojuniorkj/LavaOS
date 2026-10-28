@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assertPermission, can } from '@/lib/auth/permissions';
+import { PERMISSOES } from '@/lib/auth/types';
 import type { Perfil, Permissao, TenantContext } from '@/lib/auth/types';
 
 // Tabela independente da implementação: spec §3, colunas dono, gerente, recepcao, lavador.
@@ -35,7 +36,11 @@ const celulas = MATRIZ.flatMap(([p, ...vals]) => PERFIS_ORDEM.map((perfil, i) =>
 const ctx = (perfil: Perfil) => ({ perfil }) as TenantContext;
 
 describe('matriz de permissões', () => {
-  it('cobre as 24 permissões', () => expect(MATRIZ).toHaveLength(24));
+  it('a tabela cobre exatamente as permissões da implementação (24)', () => {
+    expect(new Set(MATRIZ.map(([p]) => p))).toEqual(new Set(PERMISSOES));
+    expect(MATRIZ).toHaveLength(PERMISSOES.length);
+    expect(PERMISSOES).toHaveLength(24);
+  });
 
   it.each(celulas)('%s x %s = %s', (perfil, permissao, esperado) => {
     expect(can(perfil, permissao)).toBe(esperado);

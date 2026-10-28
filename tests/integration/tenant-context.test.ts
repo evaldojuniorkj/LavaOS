@@ -77,6 +77,12 @@ describe('requireTenantContext', () => {
       await expect(guards(db, { ...claims, userId: f.b.membros.dono.userId }).requireTenantContext(headers)).rejects.toThrow('acesso negado');
     }));
 
+  it('nega id de sessão malformado com acesso negado, não erro do Postgres', () =>
+    run(async (db, f) => {
+      const claims = await seedSession(db, f.a.membros.dono.userId, f.a.tenantId);
+      await expect(guards(db, { ...claims, id: 'nao-e-uuid' }).requireTenantContext(headers)).rejects.toThrow('acesso negado');
+    }));
+
   it('nega sessão expirada (linha do banco), mesmo com claim ainda válido', () =>
     run(async (db, f) => {
       const claims = await seedSession(db, f.a.membros.dono.userId, f.a.tenantId, new Date('2026-10-01T00:00:00Z'));

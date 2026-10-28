@@ -29,6 +29,7 @@ describe('equipe.repo', () => {
       expect(await findMember(ctxA, f.a.membros.lavador.memberId, db)).toMatchObject({ perfil: 'lavador', ativo: true });
       expect(await findMember(ctxA, f.b.membros.lavador.memberId, db)).toBeNull();
       expect(await findMember(ctxA, crypto.randomUUID(), db)).toBeNull();
+      expect(await findMember(ctxA, 'nao-e-uuid', db)).toBeNull();
     }));
 
   it('exige contexto (checado pelo typecheck)', () => {

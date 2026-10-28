@@ -13,7 +13,13 @@ describe('quem gerencia quem', () => {
     ['gerente', 'gerente', false],
     ['gerente', 'recepcao', true],
     ['gerente', 'lavador', true],
+    ['recepcao', 'dono', false],
+    ['recepcao', 'gerente', false],
+    ['recepcao', 'recepcao', false],
     ['recepcao', 'lavador', false],
+    ['lavador', 'dono', false],
+    ['lavador', 'gerente', false],
+    ['lavador', 'recepcao', false],
     ['lavador', 'lavador', false],
   ])('%s -> %s = %s', (ator, alvo, esperado) => expect(canManageTarget(ator, alvo)).toBe(esperado));
 

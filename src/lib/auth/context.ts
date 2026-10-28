@@ -1,5 +1,6 @@
 import 'server-only';
 import { and, eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { getDatabase } from '@/lib/db/client';
 import { membros, session } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
@@ -18,7 +19,8 @@ export function createTenantGuards(deps: { readSession: SessionReader; database?
   // Único ponto que emite TenantContext; tudo vem do banco, a sessão lida só aponta qual linha conferir.
   async function requireTenantContext(headers: Headers): Promise<TenantContext> {
     const claims = (await deps.readSession(headers))?.session;
-    if (!claims) throw new AcessoNegadoError();
+    // guid: mesma forma que o Postgres aceita; id malformado vira negação, não erro 22P02
+    if (!claims || !z.guid().safeParse(claims.id).success) throw new AcessoNegadoError();
     const db = deps.database ?? getDatabase();
     // seam (tarefa 5): a checagem de pinCredentialVersion entra aqui, junto com a linha da sessão.
     const [row] = await db

@@ -1,5 +1,6 @@
 import 'server-only';
 import { and, eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { getDatabase } from '@/lib/db/client';
 import type { Database } from '@/lib/db/types';
 import { membros } from '@/lib/db/schema';
@@ -15,6 +16,7 @@ export function listMembers(ctx: TenantContext, db: Database = getDatabase()): P
 }
 
 export async function findMember(ctx: TenantContext, memberId: string, db: Database = getDatabase()): Promise<MemberSummary | null> {
+  if (!z.guid().safeParse(memberId).success) return null; // evita erro 22P02 do Postgres
   const [row] = await db.select(campos).from(membros).where(and(eq(membros.tenantId, ctx.tenantId), eq(membros.id, memberId)));
   return row ?? null;
 }
