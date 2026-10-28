@@ -21,9 +21,10 @@ export const testUrls = {
 };
 
 /** Trava de segurança: só opera destrutivamente em lavaos_test local. */
-function assertTestDb(url: string) {
+export function assertTestDb(url: string) {
   const u = new URL(url);
-  if (u.pathname !== '/lavaos_test' || !['localhost', '127.0.0.1', '[::1]', 'postgres'].includes(u.hostname)) {
+  // query/hash poderiam sobrescrever o host (?host=remoto) depois da checagem
+  if (u.search || u.hash || u.pathname !== '/lavaos_test' || !['localhost', '127.0.0.1', '[::1]', 'postgres'].includes(u.hostname)) {
     throw new Error(`Recusado: ${u.hostname}${u.pathname} não é o banco de testes local`);
   }
 }
