@@ -9,7 +9,7 @@ import type { Perfil, TenantContext } from '@/lib/auth/types';
 export type MemberSummary = { id: string; nomeExibicao: string; perfil: Perfil; ativo: boolean };
 
 // Allowlist: nunca selecionar hash, PIN, token ou valores financeiros.
-const campos = { id: membros.id, nomeExibicao: membros.nomeExibicao, perfil: membros.perfil, ativo: membros.ativo };
+export const campos = { id: membros.id, nomeExibicao: membros.nomeExibicao, perfil: membros.perfil, ativo: membros.ativo };
 
 export function listMembers(ctx: TenantContext, db: Database = getDatabase()): Promise<MemberSummary[]> {
   return db.select(campos).from(membros).where(eq(membros.tenantId, ctx.tenantId)).orderBy(membros.createdAt);

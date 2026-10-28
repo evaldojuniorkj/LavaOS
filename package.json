@@ -17,7 +17,8 @@
     "test:unit": "vitest run",
     "test:integration": "vitest run tests/integration",
     "db:generate": "node --env-file-if-exists=.env.local ./node_modules/drizzle-kit/bin.cjs generate",
-    "db:migrate": "node --env-file-if-exists=.env.local ./node_modules/drizzle-kit/bin.cjs migrate"
+    "db:migrate": "node --env-file-if-exists=.env.local ./node_modules/drizzle-kit/bin.cjs migrate",
+    "db:seed:dev": "node --env-file-if-exists=.env.local scripts/seed-dev.ts"
   },
   "dependencies": {
     "better-auth": "1.7.7",
