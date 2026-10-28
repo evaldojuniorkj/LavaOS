@@ -10,3 +10,5 @@ playwright-report/
 *.tsbuildinfo
 *.swp
 *.swo
+AGENTS.md
+next-env.d.ts
