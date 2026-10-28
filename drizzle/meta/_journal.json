@@ -8,6 +8,13 @@
       "when": 1793154940063,
       "tag": "0000_fundacao",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793155885808,
+      "tag": "0001_org_plugin_campos",
+      "breakpoints": true
     }
   ]
 }

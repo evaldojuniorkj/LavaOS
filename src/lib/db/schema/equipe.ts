@@ -14,6 +14,9 @@ export const lavaJatos = pgTable('lava_jatos', {
   slug: text('slug').notNull().unique(),
   telefone: text('telefone'),
   endereco: text('endereco'),
+  // exigidos pelo contrato do plugin de organização (1.7.7); sem uso na Fundação
+  logo: text('logo'),
+  metadata: text('metadata'),
   createdAt: ts('created_at').defaultNow().notNull(),
   updatedAt: ts('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 });
