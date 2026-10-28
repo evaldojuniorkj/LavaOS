@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export const PRODUCT_NAME = 'LavaOS';
 
-const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]', 'postgres']; // postgres = serviço do CI
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]']; // o CI publica o Postgres em localhost
 
 const dbUrl = z.string().refine((v) => URL.canParse(v) && /^postgres(ql)?:$/.test(new URL(v).protocol), 'URL de banco inválida');
 

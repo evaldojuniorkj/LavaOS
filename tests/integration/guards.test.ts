@@ -6,13 +6,13 @@ import { assertTestDb, testUrls } from '../helpers/db';
 describe('guarda do banco de testes', () => {
   it('aceita só lavaos_test em host local, sem query', () => {
     expect(() => assertTestDb(testUrls.owner)).not.toThrow();
-    expect(() => assertTestDb('postgres://a:b@postgres:5432/lavaos_test')).not.toThrow();
   });
 
   it.each([
     'postgres://a:b@127.0.0.1:55432/lavaos_test?host=remoto.exemplo.com',
     'postgres://a:b@127.0.0.1:55432/lavaos_test?sslmode=disable',
     'postgres://a:b@db.exemplo.com/lavaos_test',
+    'postgres://a:b@postgres:5432/lavaos_test', // CI usa localhost; nome de serviço não é aceito
     'postgres://a:b@127.0.0.1:55432/lavaos_dev',
   ])('recusa %s', (url) => {
     expect(() => assertTestDb(url)).toThrow(/Recusado/);

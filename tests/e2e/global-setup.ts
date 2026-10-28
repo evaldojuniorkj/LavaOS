@@ -8,20 +8,14 @@ import { hashPassword } from 'better-auth/crypto';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import pg from 'pg';
+import { assertTestDb, testUrls } from '../helpers/test-db';
 
 export const E2E_PILOT_SLUG = 'e2e';
-const OWNER = 'postgres://lavaos_owner:owner_local_dev@127.0.0.1:55432/lavaos_test';
-
-function assertTestDb(url: string) {
-  const u = new URL(url);
-  if (u.search || u.hash || u.pathname !== '/lavaos_test' || !['localhost', '127.0.0.1', '[::1]', 'postgres'].includes(u.hostname)) {
-    throw new Error(`Recusado: ${u.hostname}${u.pathname} não é o banco de testes local`);
-  }
-}
 
 export default async function globalSetup() {
-  assertTestDb(OWNER);
-  const pool = new pg.Pool({ connectionString: OWNER, max: 1 });
+  assertTestDb(testUrls.owner);
+  assertTestDb(testUrls.app);
+  const pool = new pg.Pool({ connectionString: testUrls.owner, max: 1 });
   try {
     await pool.query('DROP SCHEMA IF EXISTS public CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE; CREATE SCHEMA public;');
     await pool.query('GRANT USAGE ON SCHEMA public TO lavaos_app');
@@ -63,6 +57,18 @@ export default async function globalSetup() {
       t.id,
       b.id,
       multi,
+    ]);
+    // lavador de B: alvo alheio da suíte adversarial (foundation-security)
+    const lavB = randomUUID();
+    await pool.query('insert into "user" (id, name, email) values ($1, $2, $3)', [lavB, 'Lavador B E2E', `${lavB}@lavador.invalid`]);
+    const {
+      rows: [mb],
+    } = await pool.query(`insert into membros (tenant_id, user_id, perfil, nome_exibicao) values ($1, $2, 'lavador', 'Lavador B E2E') returning id`, [b.id, lavB]);
+    await pool.query('insert into credenciais_lavador (tenant_id, membro_id, usuario_normalizado, pin_hash) values ($1, $2, $3, $4)', [
+      b.id,
+      mb.id,
+      'lavador.b',
+      await hashPassword(pin),
     ]);
     Object.assign(process.env, { E2E_SENHA: senha, E2E_PIN: pin });
   } finally {

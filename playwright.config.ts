@@ -1,11 +1,15 @@
 import { randomBytes } from 'node:crypto';
 import { defineConfig, devices } from '@playwright/test';
 import { E2E_PILOT_SLUG } from './tests/e2e/global-setup';
+import { assertTestDb, testUrls } from './tests/helpers/test-db';
 
 const PORT = 3100;
 const BASE = `http://localhost:${PORT}`;
-// Mesmos padrões do compose local que tests/helpers/db.ts; o global-setup recusa qualquer banco que não seja lavaos_test local.
-const TEST_DB = process.env.TEST_DATABASE_URL ?? 'postgres://lavaos_app:app_local_dev@127.0.0.1:55432/lavaos_test';
+// Mesma fonte do global-setup (que zera e popula): servidor e fixtures nunca apontam para bancos diferentes.
+const TEST_DB = testUrls.app;
+assertTestDb(TEST_DB);
+// `pnpm verify:foundation` acabou de rodar `pnpm build` e reaproveita; `pnpm test:e2e` sozinho sempre compila de novo.
+const BUILD = process.env.E2E_REUSE_BUILD === '1' ? '' : 'pnpm build && ';
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -14,7 +18,8 @@ export default defineConfig({
   workers: 1, // todos os testes dividem o mesmo lavaos_test
   forbidOnly: !!process.env.CI,
   reporter: 'list',
-  use: { baseURL: BASE, trace: 'retain-on-failure' },
+  // traces/vídeos gravam o que é digitado (senhas e PINs da execução): só localmente, nunca no CI
+  use: { baseURL: BASE, trace: process.env.CI ? 'off' : 'retain-on-failure', screenshot: 'off', video: 'off' },
   projects: [
     // IP distinto por projeto: cada um tem sua própria cota de tentativas PIN por origem
     { name: 'desktop', use: { ...devices['Desktop Chrome'], extraHTTPHeaders: { 'x-real-ip': '10.0.0.1' } } },
@@ -26,7 +31,7 @@ export default defineConfig({
   // Servidor de produção (build standalone, como na VPS): sem HMR/compilação sob demanda do `next dev`.
   // `next start` não serve `output: standalone`; os estáticos são copiados como no deploy.
   webServer: {
-    command: 'pnpm build && cp -R .next/static .next/standalone/.next/ && node .next/standalone/server.js',
+    command: `${BUILD}cp -R .next/static .next/standalone/.next/ && node .next/standalone/server.js`,
     url: `${BASE}/api/auth/get-session`,
     reuseExistingServer: false,
     timeout: 300_000,

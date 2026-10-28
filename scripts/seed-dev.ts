@@ -10,7 +10,7 @@ import pg from 'pg';
 import { z } from 'zod';
 import { createMemberSchema } from '../src/modules/equipe/equipe.schemas.ts';
 
-const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]', 'postgres'];
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
 const BANCOS = ['/lavaos_dev', '/lavaos_test'];
 
 function recusar(motivo: string): never {
