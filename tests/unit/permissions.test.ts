@@ -67,4 +67,10 @@ describe('assertPermission', () => {
   it('recusa operação não implantada mesmo para o dono', () => {
     expect(() => assertPermission(ctx('dono'), 'caixa:operar')).toThrow('acesso negado');
   });
+
+  it('assertPermission libera os:abrir ao lavador e recusa os:reabrir a todos', () => {
+    expect(() => assertPermission(ctx('lavador'), 'os:abrir')).not.toThrow();
+    expect(() => assertPermission(ctx('recepcao'), 'catalogo:gerenciar')).toThrow('acesso negado');
+    for (const perfil of PERFIS_ORDEM) expect(() => assertPermission(ctx(perfil), 'os:reabrir')).toThrow('acesso negado');
+  });
 });

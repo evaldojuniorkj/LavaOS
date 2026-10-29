@@ -67,9 +67,13 @@ describe('schema da Fundação', () => {
   it('não cria tabelas de fases futuras', () =>
     withTestDatabase(async (db) => {
       const { rows } = await db.execute<{ table_name: string }>(sql`select table_name from information_schema.tables where table_schema = 'public'`);
-      const nomes = rows.map((r) => r.table_name);
-      expect(nomes).toEqual(expect.arrayContaining(['lava_jatos', 'membros', 'credenciais_lavador', 'user', 'session']));
-      expect(nomes.filter((n) => /ordens|os_|caixa|pagamento|despesa|comiss|acerto|fidelidade|beneficio|agendamento|servico|cliente|veiculo/.test(n))).toEqual([]);
+      // Fundação + Better Auth + Fase 1; qualquer outra tabela é de fase futura
+      expect(rows.map((r) => r.table_name).sort()).toEqual(
+        [
+          'account', 'convites', 'credenciais_lavador', 'lava_jatos', 'membros', 'session', 'tentativas_pin_origem', 'user', 'verification',
+          'portes', 'servicos', 'precos', 'clientes', 'veiculos', 'ordens_servico', 'os_itens', 'os_eventos', 'os_contadores',
+        ].sort(),
+      );
     }));
 
   it('runtime não executa DDL mas faz DML', () =>

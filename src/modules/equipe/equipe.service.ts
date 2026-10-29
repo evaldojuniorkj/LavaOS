@@ -55,7 +55,7 @@ const linhaMembro = (tx: Tx, ctx: TenantContext, id: string) =>
  */
 async function travarAtor(tx: Tx, ctx: TenantContext) {
   await tx.execute(sql`set local lock_timeout = '5s'`);
-  await tx.select({ id: lavaJatos.id }).from(lavaJatos).where(eq(lavaJatos.id, ctx.tenantId)).for('update');
+  await tx.select({ id: lavaJatos.id }).from(lavaJatos).where(eq(lavaJatos.id, ctx.tenantId)).for('no key update'); // não bloqueia inserts com FK para o tenant
   const [ator] = await linhaMembro(tx, ctx, ctx.memberId);
   if (!ator?.ativo) throw new AcessoNegadoError();
   return ator;

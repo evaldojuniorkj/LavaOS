@@ -33,7 +33,21 @@ const MATRIZ: Record<Permissao, readonly Perfil[]> = {
 };
 
 /** Operações com ação de domínio existente; fases posteriores acrescentam aqui. */
-const IMPLANTADAS: ReadonlySet<Permissao> = new Set<Permissao>(['equipe:gerenciar', 'equipe:gerenciar_lideranca']);
+const IMPLANTADAS: ReadonlySet<Permissao> = new Set<Permissao>([
+  'equipe:gerenciar',
+  'equipe:gerenciar_lideranca',
+  'fila:ver',
+  'os:abrir',
+  'os:assumir',
+  'os:atribuir',
+  'os:avancar',
+  'os:corrigir',
+  'os:entregar',
+  'os:cancelar',
+  'os:ajustar_valor',
+  'clientes:gerenciar',
+  'catalogo:gerenciar',
+]);
 
 export function can(perfil: Perfil, permissao: Permissao): boolean {
   // hasOwn: entrada desconhecida (ex.: 'toString') nega em vez de herdar do protótipo
