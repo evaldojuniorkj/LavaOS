@@ -14,7 +14,7 @@ const erroDe = (r: ActionResult<unknown>) => (r.ok ? '' : r.code === 'VALIDACAO'
 const reais = (c: number) => `R$ ${centesimosParaTexto(c)}`;
 const campoSelect = 'block min-h-11 w-full rounded-md border border-linha bg-white px-3 text-base';
 
-function Alerta({ texto }: { texto: string }) {
+export function Alerta({ texto }: { texto: string }) {
   return texto ? (
     <p role="alert" className="rounded-md border border-perigo/30 bg-perigo/5 p-3 text-sm font-medium text-perigo">
       {texto}
@@ -23,7 +23,7 @@ function Alerta({ texto }: { texto: string }) {
 }
 
 /** Envia uma action, mostra erros e atualiza a página. A validação final é sempre do servidor. */
-function useEnvio(onOk: (r: ActionResult<never>) => void) {
+export function useEnvio(onOk: (r: ActionResult<never>) => void) {
   const router = useRouter();
   const [erros, setErros] = useState<Erros>({});
   const [erro, setErro] = useState('');
