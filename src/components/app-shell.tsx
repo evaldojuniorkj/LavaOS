@@ -10,12 +10,14 @@ import { cn } from '@/lib/utils';
 
 export const PERFIL_ROTULO: Record<Perfil, string> = { dono: 'Dono', gerente: 'Gerente', recepcao: 'Recepção', lavador: 'Lavador' };
 
-/** Navegação só para telas existentes; o item Equipe é conveniência, a regra é do servidor. */
-export function AppShell({ nome, perfil, podeEquipe, children }: { nome: string; perfil: Perfil; podeEquipe: boolean; children: React.ReactNode }) {
+/** Navegação só para telas existentes; o itens Equipe e Catálogo são conveniência, a regra é do servidor. */
+export function AppShell({ nome, perfil, podeEquipe, podeCatalogo, children }: { nome: string; perfil: Perfil; podeEquipe: boolean; podeCatalogo: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [saindo, setSaindo] = useState(false);
-  const itens = [{ href: '/inicio', rotulo: 'Início' }, ...(podeEquipe ? [{ href: '/configuracoes/equipe', rotulo: 'Equipe' }] : [])];
+  const itens = [{ href: '/inicio', rotulo: 'Início' }, ...(podeEquipe ? [{ href: '/configuracoes/equipe', rotulo: 'Equipe' }] : []),
+    ...(podeCatalogo ? [{ href: '/configuracoes/catalogo', rotulo: 'Catálogo' }] : []),
+  ];
 
   async function sair() {
     setSaindo(true);
