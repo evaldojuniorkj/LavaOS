@@ -1,6 +1,8 @@
 import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { lavaJatos, ordensServico, osItens, portes, servicos, precos, veiculos, osEventos, osContadores } from '@/lib/db/schema';
+import { membros, ordensServico, osItens, portes, servicos, precos, session, veiculos, osEventos, osContadores } from '@/lib/db/schema';
+import { createTenantGuards } from '@/lib/auth/context';
+import { deactivateMember } from '@/modules/equipe/equipe.service';
 import type { Database } from '@/lib/db/types';
 import { withTestDatabase } from '../helpers/db';
 import { createFoundationFixtures, type FoundationFixtures } from '../helpers/fixtures';
@@ -103,18 +105,29 @@ describe('schema da Fase 1', () => {
       expect(await pgCode(db.insert(servicos).values({ ...base, comissaoTipo: 'fixo', comissaoValor: 0 }))).toBeUndefined();
     }));
 
-  it('insert que referencia o tenant não espera a trava de mudança de equipe', () =>
+  it('insert que referencia o tenant não espera uma mudança de equipe em andamento', () =>
     withTestDatabase(async (db) => {
       const f = await createFoundationFixtures(db);
-      const { porte } = await catalogo(db, f.a);
-      let inserido: unknown;
+      const userId = f.a.membros.dono.userId;
+      const [sess] = await db.insert(session).values({ userId, activeOrganizationId: f.a.tenantId, expiresAt: new Date(Date.now() + 3_600_000), token: crypto.randomUUID() }).returning();
+      const ctx = await createTenantGuards({
+        readSession: async () => ({ session: { id: sess.id, userId, expiresAt: sess.expiresAt, activeOrganizationId: f.a.tenantId } }),
+        database: db,
+      }).requireTenantContext(new Headers());
+      let mudanca!: Promise<void>;
       await db.transaction(async (tx) => {
-        // mesma trava de travarAtor em equipe.service.ts
-        await tx.select({ id: lavaJatos.id }).from(lavaJatos).where(eq(lavaJatos.id, f.a.tenantId)).for('no key update');
-        inserido = await db.insert(veiculos).values({ tenantId: f.a.tenantId, placa: 'ABC1234', porteId: porte.id }).returning();
-        const esperando = await db.execute<{ n: number }>(sql`select count(*)::int as n from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'`);
-        expect(esperando.rows[0].n).toBe(0);
+        // segura a linha do ator: a mudança de equipe pega a trava do tenant e fica esperando aqui
+        await tx.select({ id: membros.id }).from(membros).where(eq(membros.id, ctx.memberId)).for('update');
+        mudanca = deactivateMember(ctx, f.a.membros.gerente.memberId, db);
+        const esperando = sql`select count(*)::int as n from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'`;
+        while ((await db.execute<{ n: number }>(esperando)).rows[0].n < 1) await new Promise((r) => setImmediate(r));
+        // a mudança está pendente com a trava do tenant; o insert com FK para o tenant tem de passar sem esperar
+        const [porte] = await db.transaction(async (ins) => {
+          await ins.execute(sql`set local lock_timeout = '1s'`);
+          return ins.insert(portes).values({ tenantId: f.a.tenantId, nome: 'Moto' }).returning();
+        });
+        expect(porte.nome).toBe('Moto');
       });
-      expect(inserido).toHaveLength(1);
+      await mudanca;
     }));
 });
