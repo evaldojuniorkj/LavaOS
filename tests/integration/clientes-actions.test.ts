@@ -5,7 +5,7 @@ import { getDatabase } from '@/lib/db/client';
 import { clientes, portes, session, veiculos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { buscarVeiculoPorPlaca } from '@/modules/clientes/clientes.repo';
-import { cadastroRapidoAction, salvarClienteAction, salvarVeiculoAction } from '@/modules/clientes/clientes.actions';
+import { buscarPorPlacaAction, cadastroRapidoAction, salvarClienteAction, salvarVeiculoAction } from '@/modules/clientes/clientes.actions';
 import { createAuthFixtures, type AuthFixtures } from '../helpers/auth';
 import { withTestDatabase } from '../helpers/db';
 import { createHttp } from '../helpers/http';
@@ -156,5 +156,57 @@ describe('clientes.actions', () => {
       const r = await cadastroRapidoAction({ placa: 'ABC1234', porteId: porte.id, clienteNome: 'Ana' });
       expect(Object.keys((r as { data: object }).data).sort()).toEqual(['clienteId', 'veiculoId']);
       expect(JSON.stringify(r)).not.toMatch(/centavos|valor|total|preco|R\$/i);
+    }));
+
+  it('placa duplicada: criar, trocar a placa para a de outro veículo e corrida viram PLACA_DUPLICADA', () =>
+    run(async (db, f) => {
+      const porte = await porteDe(db, f.a.tenantId);
+      await como(f, f.a.membros.dono.userId);
+      const a = await salvarVeiculoAction({ placa: 'AAA1111', porteId: porte.id });
+      const b = await salvarVeiculoAction({ placa: 'BBB2222', porteId: porte.id });
+      if (!a.ok || !b.ok) throw new Error('falhou');
+      expect(await salvarVeiculoAction({ id: b.data.id, placa: 'aaa-1111', porteId: porte.id })).toEqual({ ok: false, code: 'PLACA_DUPLICADA', message: 'Já existe um veículo com esta placa.' });
+      const corrida = await Promise.all([1, 2].map(() => salvarVeiculoAction({ placa: 'CCC3333', porteId: porte.id })));
+      expect(corrida.filter((r) => r.ok)).toHaveLength(1);
+      expect(corrida.find((r) => !r.ok)).toEqual({ ok: false, code: 'PLACA_DUPLICADA', message: 'Já existe um veículo com esta placa.' });
+      expect(await db.select().from(veiculos)).toHaveLength(3);
+    }));
+
+  it('cadastroRapido concorrente com a mesma placa nova: um veículo, um cliente, sem órfão', () =>
+    run(async (db, f) => {
+      const porte = await porteDe(db, f.a.tenantId);
+      await comoLavador(f);
+      const rs = await Promise.all(['Ana', 'Beto'].map((clienteNome) => cadastroRapidoAction({ placa: 'ABC1D23', porteId: porte.id, clienteNome })));
+      if (!rs[0].ok || !rs[1].ok) throw new Error('falhou');
+      expect(rs[1].data).toEqual(rs[0].data);
+      const [v] = await db.select().from(veiculos);
+      expect(await db.select().from(veiculos)).toHaveLength(1);
+      const cs = await db.select().from(clientes);
+      expect(cs).toHaveLength(1);
+      expect(v.clienteId).toBe(cs[0].id);
+    }));
+
+  it('buscarPorPlacaAction: lavador vê só o nome do cliente; recepção vê tudo; outro tenant e inválida dão null', () =>
+    run(async (db, f) => {
+      const porte = await porteDe(db, f.a.tenantId);
+      const porteB = await porteDe(db, f.b.tenantId);
+      const [cli] = await db.insert(clientes).values({ tenantId: f.a.tenantId, nome: 'Ana', telefone: '+5511988887777', observacoes: 'vip' }).returning();
+      await db.insert(veiculos).values({ tenantId: f.a.tenantId, placa: 'AAA1111', porteId: porte.id, clienteId: cli.id });
+      await db.insert(veiculos).values({ tenantId: f.b.tenantId, placa: 'BBB2222', porteId: porteB.id });
+
+      await comoLavador(f);
+      const l = await buscarPorPlacaAction({ placa: 'aaa-1111' });
+      if (!l.ok || !l.data) throw new Error('falhou');
+      expect(Object.keys(l.data.cliente!).sort()).toEqual(['id', 'nome']);
+      expect(l.data.cliente).toEqual({ id: cli.id, nome: 'Ana' });
+      expect(JSON.stringify(l)).not.toMatch(/telefone|observacoes|vip|9888/);
+      expect(await buscarPorPlacaAction({ placa: 'BBB2222' })).toEqual({ ok: true, data: null });
+      expect(await buscarPorPlacaAction({ placa: 'xx' })).toEqual({ ok: true, data: null });
+      expect(await buscarPorPlacaAction({ placa: 'AAA1111', tenantId: f.b.tenantId })).toMatchObject({ ok: false, code: 'VALIDACAO' });
+
+      await como(f, f.a.membros.recepcao.userId);
+      const r = await buscarPorPlacaAction({ placa: 'AAA1111' });
+      expect(r).toMatchObject({ ok: true, data: { cliente: { nome: 'Ana', telefone: '+5511988887777', observacoes: 'vip' } } });
+      expect(await buscarPorPlacaAction({ placa: 'BBB2222' })).toEqual({ ok: true, data: null });
     }));
 });

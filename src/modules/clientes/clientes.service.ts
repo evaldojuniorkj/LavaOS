@@ -16,6 +16,8 @@ export class ClientesError extends Error {
     this.name = 'ClientesError';
   }
 }
+const placaDuplicada = () => new ClientesError('PLACA_DUPLICADA', 'Já existe um veículo com esta placa.');
+const violouUnique = (err: unknown) => [err, (err as { cause?: unknown })?.cause].some((e) => (e as { code?: string } | null)?.code === '23505');
 const naoEncontrado = (o: string) => new ClientesError('NAO_ENCONTRADO', `${o} não encontrado.`);
 
 export async function salvarCliente(ctx: TenantContext, input: z.output<typeof salvarClienteSchema>, db: Database = getDatabase()): Promise<Cliente> {
@@ -28,6 +30,14 @@ export async function salvarCliente(ctx: TenantContext, input: z.output<typeof s
 
 export async function salvarVeiculo(ctx: TenantContext, input: z.output<typeof salvarVeiculoSchema>, db: Database = getDatabase()): Promise<Veiculo> {
   const { id, ...dados } = input;
+  return gravarVeiculo(db, ctx, id, dados).catch((err) => {
+    // corrida entre a checagem e o INSERT/UPDATE: o unique (tenant, placa) responde 23505
+    if (violouUnique(err)) throw placaDuplicada();
+    throw err;
+  });
+}
+
+function gravarVeiculo(db: Database, ctx: TenantContext, id: string | undefined, dados: Omit<z.output<typeof salvarVeiculoSchema>, 'id'>): Promise<Veiculo> {
   return db.transaction(async (tx) => {
     // as FKs compostas também impedem vínculo entre tenants; aqui vira "não encontrado" em vez de erro do banco
     const [porte] = await tx.select({ id: portes.id }).from(portes).where(and(eq(portes.tenantId, ctx.tenantId), eq(portes.id, dados.porteId)));
@@ -37,7 +47,7 @@ export async function salvarVeiculo(ctx: TenantContext, input: z.output<typeof s
       if (!c) throw naoEncontrado('Cliente');
     }
     const [mesmaPlaca] = await tx.select({ id: veiculos.id }).from(veiculos).where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.placa, dados.placa)));
-    if (mesmaPlaca && mesmaPlaca.id !== id) throw new ClientesError('PLACA_DUPLICADA', 'Já existe um veículo com esta placa.');
+    if (mesmaPlaca && mesmaPlaca.id !== id) throw placaDuplicada();
     if (!id) return (await tx.insert(veiculos).values({ ...dados, tenantId: ctx.tenantId }).returning(camposVeiculo))[0];
     const [v] = await tx.update(veiculos).set(dados).where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.id, id))).returning(camposVeiculo);
     if (!v) throw naoEncontrado('Veículo');

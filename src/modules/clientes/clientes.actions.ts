@@ -6,7 +6,7 @@ import { requirePermission } from '@/lib/auth/context';
 import { AcessoNegadoError } from '@/lib/auth/permissions';
 import type { Permissao, TenantContext } from '@/lib/auth/types';
 import type { ActionResult } from '@/modules/catalogo/catalogo.actions';
-import type { Cliente, Veiculo } from './clientes.repo';
+import { buscarVeiculoPorPlaca, type Cliente, type Veiculo } from './clientes.repo';
 import { cadastroRapidoSchema, salvarClienteSchema, salvarVeiculoSchema } from './clientes.schemas';
 import { cadastroRapido, ClientesError, salvarCliente, salvarVeiculo } from './clientes.service';
 
@@ -37,4 +37,9 @@ export async function salvarVeiculoAction(input: unknown): Promise<ActionResult<
 
 export async function cadastroRapidoAction(input: unknown) {
   return executar('os:abrir', cadastroRapidoSchema, input, cadastroRapido);
+}
+
+/** Consulta da Nova OS: o formato do cliente é decidido pelo perfil dentro do repositório (lavador só vê o nome). */
+export async function buscarPorPlacaAction(input: unknown) {
+  return executar('os:abrir', z.strictObject({ placa: z.string().max(20) }), input, (ctx, { placa }) => buscarVeiculoPorPlaca(ctx, placa));
 }
