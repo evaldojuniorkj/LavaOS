@@ -102,6 +102,9 @@ export async function abrirOs(ctx: TenantContext, input: z.output<typeof abrirOs
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 const ENCERRADOS: StatusOs[] = ['entregue', 'cancelada'];
+/** Erros após os quais a UI deve recarregar a fila (a OS mudou sob os pés do usuário). */
+export const ERROS_RECARREGAR_FILA = ['CONFLITO_OS', 'NAO_E_RESPONSAVEL', 'OS_ENCERRADA'] as const;
+
 const naoEncontrada = () => new OrdensError('NAO_ENCONTRADO', 'OS não encontrada.');
 const encerrada = (status: StatusOs) => new OrdensError('OS_ENCERRADA', `OS ${status} não pode ser alterada.`);
 

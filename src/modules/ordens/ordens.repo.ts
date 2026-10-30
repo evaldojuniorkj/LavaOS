@@ -1,11 +1,12 @@
 import 'server-only';
-import { and, asc, eq, inArray, max, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, max, sql, type SQL } from 'drizzle-orm';
+import { z } from 'zod';
 import type { TenantContext } from '@/lib/auth/types';
 import { getDatabase } from '@/lib/db/client';
 import { clientes, membros, ordensServico, osItens, precos, servicos, veiculos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { sugerirLavadorLivre } from './ordens.rules';
-import type { OsCompleta } from './ordens.views';
+import { toOsView, type OsCompleta, type OsView } from './ordens.views';
 
 /** Database ou transação: só leitura. */
 type Leitor = Pick<Database, 'select'>;
@@ -63,8 +64,9 @@ export async function listarLavadoresParaDirecionar(ctx: TenantContext, db: Leit
   return rows.map((r) => ({ membroId: r.membroId, nome: r.nome, livre: r.emLavagem === 0, sugerido: r.membroId === sugerido }));
 }
 
-export async function carregarOs(ctx: TenantContext, id: string, db: Leitor = getDatabase()): Promise<OsCompleta | null> {
-  const [row] = await db
+/** OSs que casam com `filtro` (sempre dentro do tenant), em 2 consultas, mais antigas primeiro. */
+async function carregarVarias(ctx: TenantContext, filtro: SQL, db: Leitor): Promise<OsCompleta[]> {
+  const rows = await db
     .select({
       os: ordensServico,
       veiculo: { placa: veiculos.placa, modelo: veiculos.modelo, cor: veiculos.cor },
@@ -75,15 +77,15 @@ export async function carregarOs(ctx: TenantContext, id: string, db: Leitor = ge
     .innerJoin(veiculos, and(eq(veiculos.tenantId, ordensServico.tenantId), eq(veiculos.id, ordensServico.veiculoId)))
     .leftJoin(clientes, and(eq(clientes.tenantId, ordensServico.tenantId), eq(clientes.id, ordensServico.clienteId)))
     .leftJoin(membros, and(eq(membros.tenantId, ordensServico.tenantId), eq(membros.id, ordensServico.responsavelId)))
-    .where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, id)));
-  if (!row) return null;
+    .where(and(eq(ordensServico.tenantId, ctx.tenantId), filtro))
+    .orderBy(asc(ordensServico.entradaEm), asc(ordensServico.id));
+  if (rows.length === 0) return [];
   const itens = await db
-    .select({ id: osItens.id, nome: osItens.nomeServico, valorCentavos: osItens.valorCentavos })
+    .select({ osId: osItens.osId, id: osItens.id, nome: osItens.nomeServico, valorCentavos: osItens.valorCentavos })
     .from(osItens)
-    .where(and(eq(osItens.tenantId, ctx.tenantId), eq(osItens.osId, id)))
+    .where(and(eq(osItens.tenantId, ctx.tenantId), inArray(osItens.osId, rows.map((r) => r.os.id))))
     .orderBy(asc(osItens.createdAt), asc(osItens.id));
-  const { os } = row;
-  return {
+  return rows.map(({ os, veiculo, cliente, responsavel }) => ({
     id: os.id,
     numero: os.numero,
     status: os.status,
@@ -93,17 +95,34 @@ export async function carregarOs(ctx: TenantContext, id: string, db: Leitor = ge
     acrescimoCentavos: os.acrescimoCentavos,
     totalCentavos: os.totalCentavos,
     tokenPublico: os.tokenPublico,
-    veiculo: row.veiculo,
-    cliente: row.cliente,
-    itens,
-    responsavel: row.responsavel,
+    veiculo,
+    cliente,
+    itens: itens.filter((i) => i.osId === os.id).map(({ id, nome, valorCentavos }) => ({ id, nome, valorCentavos })),
+    responsavel,
     entradaEm: os.entradaEm,
     atribuidoEm: os.atribuidoEm,
     inicioLavagemEm: os.inicioLavagemEm,
     prontoEm: os.prontoEm,
     entregueEm: os.entregueEm,
     canceladaEm: os.canceladaEm,
-  };
+  }));
+}
+
+export async function carregarOs(ctx: TenantContext, id: string, db: Leitor = getDatabase()): Promise<OsCompleta | null> {
+  return (await carregarVarias(ctx, eq(ordensServico.id, id), db))[0] ?? null;
+}
+
+/** Fila do tenant (aguardando, em lavagem, pronto), mais antigas primeiro; sempre via toOsView. */
+export async function listarFila(ctx: TenantContext, db: Leitor = getDatabase()): Promise<OsView[]> {
+  const fila = await carregarVarias(ctx, inArray(ordensServico.status, ['aguardando', 'em_lavagem', 'pronto']), db);
+  return fila.map((os) => toOsView(ctx.perfil, os));
+}
+
+/** Qualquer status; id de outro tenant ou malformado = null. */
+export async function obterOs(ctx: TenantContext, osId: string, db: Leitor = getDatabase()): Promise<OsView | null> {
+  if (!z.guid().safeParse(osId).success) return null;
+  const os = await carregarOs(ctx, osId, db);
+  return os && toOsView(ctx.perfil, os);
 }
 
 /** Itens da OS com o flag `adicional` do serviço de origem (para revalidar a seleção após editar). */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toOsView, type OsCompleta } from '@/modules/ordens/ordens.views';
+import { toOsView, veValores, type OsCompleta } from '@/modules/ordens/ordens.views';
 
 const os: OsCompleta = {
   id: 'os-1',
@@ -45,5 +45,15 @@ describe('toOsView', () => {
       cliente: { nome: 'Ana', telefone: '+5511988887777' },
       itens: [{ nome: 'Lavagem', valorCentavos: 5000 }, { nome: 'Cera', valorCentavos: 1500 }],
     });
+  });
+});
+
+describe('veValores', () => {
+  it.each([['dono', true], ['gerente', true], ['recepcao', true], ['lavador', false]] as const)('%s → %s', (perfil, esperado) => {
+    expect(veValores(perfil)).toBe(esperado);
+  });
+
+  it('perfil desconhecido nega por padrão', () => {
+    expect(veValores('novo' as never)).toBe(false);
   });
 });

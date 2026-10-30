@@ -34,3 +34,5 @@ export const editarItensSchema = z
   .refine((v) => v.adicionar.length + v.remover.length > 0, 'Nada a alterar.');
 const centavos = z.number().int().min(0).max(PRECO_MAXIMO_CENTAVOS, 'Valor acima do máximo de R$ 100.000,00.');
 export const ajustarValorSchema = z.strictObject({ osId: z.guid(), descontoCentavos: centavos, acrescimoCentavos: centavos });
+
+export const obterOsSchema = z.strictObject({ osId: z.guid() });

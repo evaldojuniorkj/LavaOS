@@ -1,4 +1,3 @@
-import { can } from '@/lib/auth/permissions';
 import type { Perfil } from '@/lib/auth/types';
 import type { StatusOs } from './ordens.rules';
 
@@ -31,6 +30,10 @@ export type OsViewLavador = Base & { cliente: { nome: string } | null; itens: { 
 export type OsViewGestao = OsCompleta;
 export type OsView = OsViewGestao | OsViewLavador;
 
+// Allow-list explícita (spec §3): perfil novo não vê valores/token/telefone até ser listado aqui.
+const PERFIS_COM_VALORES: ReadonlySet<Perfil> = new Set<Perfil>(['dono', 'gerente', 'recepcao']);
+export const veValores = (perfil: Perfil): boolean => PERFIS_COM_VALORES.has(perfil);
+
 // Lista explícita de campos: um campo novo em OsCompleta não vaza para o lavador por engano.
 export function toOsView(perfil: Perfil, os: OsCompleta): OsView {
   const base: Base = {
@@ -47,7 +50,7 @@ export function toOsView(perfil: Perfil, os: OsCompleta): OsView {
     entregueEm: os.entregueEm,
     canceladaEm: os.canceladaEm,
   };
-  if (!can(perfil, 'clientes:gerenciar')) {
+  if (!veValores(perfil)) {
     return { ...base, cliente: os.cliente && { nome: os.cliente.nome }, itens: os.itens.map((i) => ({ id: i.id, nome: i.nome })) };
   }
   return {
