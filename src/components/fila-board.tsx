@@ -5,6 +5,7 @@ import { Alerta } from '@/components/catalogo-form';
 import { Button } from '@/components/ui/button';
 import { Campo } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AvisosWhatsapp } from '@/components/whatsapp-button';
 import { useEventos } from '@/components/use-eventos';
 import type { ActionResult } from '@/modules/catalogo/catalogo.actions';
 import { centesimosParaTexto, decimalParaCentesimos } from '@/modules/catalogo/catalogo.rules';
@@ -193,6 +194,7 @@ function Cartao({ os, agora, pode, meuId, pendente, onTransitar, onDialogo }: {
         <p className={cn('text-base', os.responsavel ? 'font-semibold text-tinta' : 'text-suave italic')}>{os.responsavel?.nomeExibicao ?? 'Sem responsável'}</p>
         {comValores(os) && <p className="text-lg font-bold text-tinta">{reais(os.totalCentavos)}</p>}
       </div>
+      {comValores(os) && pode.verValores && os.status !== 'entregue' && os.status !== 'cancelada' && <AvisosWhatsapp os={os} />}
       {acoes.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {acoes.map((a) => (

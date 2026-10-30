@@ -7,8 +7,8 @@ import { AcessoNegadoError } from '@/lib/auth/permissions';
 import type { Permissao, TenantContext } from '@/lib/auth/types';
 import type { ActionResult } from '@/modules/catalogo/catalogo.actions';
 import { buscarVeiculoPorPlaca, type Cliente, type Veiculo } from './clientes.repo';
-import { cadastroRapidoSchema, salvarClienteSchema, salvarVeiculoSchema } from './clientes.schemas';
-import { cadastroRapido, ClientesError, salvarCliente, salvarVeiculo } from './clientes.service';
+import { cadastroRapidoSchema, salvarClienteSchema, salvarTelefoneClienteSchema, salvarVeiculoSchema } from './clientes.schemas';
+import { cadastroRapido, ClientesError, salvarCliente, salvarTelefoneCliente, salvarVeiculo } from './clientes.service';
 
 /** Permissão base, depois validação estrita, depois o serviço. Nada é gravado antes disso. */
 async function executar<S extends z.ZodType, T>(permissao: Permissao, schema: S, input: unknown, fn: (ctx: TenantContext, data: z.output<S>) => Promise<T>): Promise<ActionResult<T>> {
@@ -29,6 +29,10 @@ async function executar<S extends z.ZodType, T>(permissao: Permissao, schema: S,
 
 export async function salvarClienteAction(input: unknown): Promise<ActionResult<Cliente>> {
   return executar('clientes:gerenciar', salvarClienteSchema, input, salvarCliente);
+}
+
+export async function salvarTelefoneClienteAction(input: unknown): Promise<ActionResult<Cliente>> {
+  return executar('clientes:gerenciar', salvarTelefoneClienteSchema, input, salvarTelefoneCliente);
 }
 
 export async function salvarVeiculoAction(input: unknown): Promise<ActionResult<Veiculo>> {

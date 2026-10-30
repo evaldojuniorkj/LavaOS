@@ -7,7 +7,7 @@ import { getDatabase } from '@/lib/db/client';
 import { clientes, portes, veiculos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { camposCliente, camposVeiculo, type Cliente, type Veiculo } from './clientes.repo';
-import type { cadastroRapidoSchema, salvarClienteSchema, salvarVeiculoSchema } from './clientes.schemas';
+import type { cadastroRapidoSchema, salvarClienteSchema, salvarTelefoneClienteSchema, salvarVeiculoSchema } from './clientes.schemas';
 
 /** Recusa de regra com mensagem segura para a tela. */
 export class ClientesError extends Error {
@@ -24,6 +24,12 @@ export async function salvarCliente(ctx: TenantContext, input: z.output<typeof s
   const { id, ...dados } = input;
   if (!id) return (await db.insert(clientes).values({ ...dados, tenantId: ctx.tenantId }).returning(camposCliente))[0];
   const [c] = await db.update(clientes).set(dados).where(and(eq(clientes.tenantId, ctx.tenantId), eq(clientes.id, id))).returning(camposCliente);
+  if (!c) throw naoEncontrado('Cliente');
+  return c;
+}
+
+export async function salvarTelefoneCliente(ctx: TenantContext, { clienteId, telefone }: z.output<typeof salvarTelefoneClienteSchema>, db: Database = getDatabase()): Promise<Cliente> {
+  const [c] = await db.update(clientes).set({ telefone }).where(and(eq(clientes.tenantId, ctx.tenantId), eq(clientes.id, clienteId))).returning(camposCliente);
   if (!c) throw naoEncontrado('Cliente');
   return c;
 }

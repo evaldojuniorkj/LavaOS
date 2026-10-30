@@ -12,6 +12,9 @@ export type OsCompleta = {
   acrescimoCentavos: number;
   totalCentavos: number;
   tokenPublico: string;
+  urlAcompanhar: string; // montada no servidor com a URL pública; só a visão de gestão a recebe
+  lavaJato: string;
+  clienteId: string | null;
   veiculo: { placa: string; modelo: string | null; cor: string | null };
   cliente: { nome: string; telefone: string | null } | null;
   itens: { id: string; nome: string; valorCentavos: number }[];
@@ -24,7 +27,7 @@ export type OsCompleta = {
   canceladaEm: Date | null;
 };
 
-type Base = Omit<OsCompleta, 'subtotalCentavos' | 'descontoCentavos' | 'acrescimoCentavos' | 'totalCentavos' | 'tokenPublico' | 'cliente' | 'itens'>;
+type Base = Omit<OsCompleta, 'subtotalCentavos' | 'descontoCentavos' | 'acrescimoCentavos' | 'totalCentavos' | 'tokenPublico' | 'urlAcompanhar' | 'lavaJato' | 'clienteId' | 'cliente' | 'itens'>;
 /** Sem nenhum valor em R$, sem telefone e sem token público (spec §3). */
 export type OsViewLavador = Base & { cliente: { nome: string } | null; itens: { id: string; nome: string }[] };
 export type OsViewGestao = OsCompleta;
@@ -60,6 +63,9 @@ export function toOsView(perfil: Perfil, os: OsCompleta): OsView {
     acrescimoCentavos: os.acrescimoCentavos,
     totalCentavos: os.totalCentavos,
     tokenPublico: os.tokenPublico,
+    urlAcompanhar: os.urlAcompanhar,
+    lavaJato: os.lavaJato,
+    clienteId: os.clienteId,
     cliente: os.cliente && { nome: os.cliente.nome, telefone: os.cliente.telefone },
     itens: os.itens.map((i) => ({ id: i.id, nome: i.nome, valorCentavos: i.valorCentavos })),
   };

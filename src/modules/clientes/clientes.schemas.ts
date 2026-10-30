@@ -25,6 +25,8 @@ const telefone = z
 // strict: tenant_id ou qualquer campo extra é recusado, nunca ignorado.
 export const salvarClienteSchema = z.strictObject({ id: id.optional(), nome, telefone: telefone.optional(), observacoes: texto(500) });
 
+export const salvarTelefoneClienteSchema = z.strictObject({ clienteId: id, telefone: telefone.refine((v): v is string => !!v, 'Informe o telefone.') });
+
 export const salvarVeiculoSchema = z.strictObject({ id: id.optional(), placa, porteId: id, modelo: texto(80), cor: texto(40), clienteId: id.nullish() });
 
 export const cadastroRapidoSchema = z

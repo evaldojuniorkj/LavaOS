@@ -2,8 +2,9 @@ import 'server-only';
 import { and, asc, eq, inArray, max, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { TenantContext } from '@/lib/auth/types';
+import { getServerEnv } from '@/lib/env';
 import { getDatabase } from '@/lib/db/client';
-import { clientes, membros, ordensServico, osItens, precos, servicos, veiculos } from '@/lib/db/schema';
+import { clientes, lavaJatos, membros, ordensServico, osItens, precos, servicos, veiculos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { sugerirLavadorLivre } from './ordens.rules';
 import { toOsView, type OsCompleta, type OsView } from './ordens.views';
@@ -71,21 +72,24 @@ async function carregarVarias(ctx: TenantContext, filtro: SQL, db: Leitor): Prom
       os: ordensServico,
       veiculo: { placa: veiculos.placa, modelo: veiculos.modelo, cor: veiculos.cor },
       cliente: { nome: clientes.nome, telefone: clientes.telefone },
+      lavaJato: lavaJatos.nome,
       responsavel: { id: membros.id, nomeExibicao: membros.nomeExibicao },
     })
     .from(ordensServico)
     .innerJoin(veiculos, and(eq(veiculos.tenantId, ordensServico.tenantId), eq(veiculos.id, ordensServico.veiculoId)))
+    .innerJoin(lavaJatos, eq(lavaJatos.id, ordensServico.tenantId))
     .leftJoin(clientes, and(eq(clientes.tenantId, ordensServico.tenantId), eq(clientes.id, ordensServico.clienteId)))
     .leftJoin(membros, and(eq(membros.tenantId, ordensServico.tenantId), eq(membros.id, ordensServico.responsavelId)))
     .where(and(eq(ordensServico.tenantId, ctx.tenantId), filtro))
     .orderBy(asc(ordensServico.entradaEm), asc(ordensServico.id));
   if (rows.length === 0) return [];
+  const urlBase = getServerEnv().BETTER_AUTH_URL.replace(/\/+$/, '');
   const itens = await db
     .select({ osId: osItens.osId, id: osItens.id, nome: osItens.nomeServico, valorCentavos: osItens.valorCentavos })
     .from(osItens)
     .where(and(eq(osItens.tenantId, ctx.tenantId), inArray(osItens.osId, rows.map((r) => r.os.id))))
     .orderBy(asc(osItens.createdAt), asc(osItens.id));
-  return rows.map(({ os, veiculo, cliente, responsavel }) => ({
+  return rows.map(({ os, veiculo, cliente, lavaJato, responsavel }) => ({
     id: os.id,
     numero: os.numero,
     status: os.status,
@@ -95,6 +99,9 @@ async function carregarVarias(ctx: TenantContext, filtro: SQL, db: Leitor): Prom
     acrescimoCentavos: os.acrescimoCentavos,
     totalCentavos: os.totalCentavos,
     tokenPublico: os.tokenPublico,
+    urlAcompanhar: `${urlBase}/acompanhar/${os.tokenPublico}`,
+    lavaJato,
+    clienteId: os.clienteId,
     veiculo,
     cliente,
     itens: itens.filter((i) => i.osId === os.id).map(({ id, nome, valorCentavos }) => ({ id, nome, valorCentavos })),

@@ -5,7 +5,7 @@ import { getDatabase } from '@/lib/db/client';
 import { clientes, portes, session, veiculos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { buscarVeiculoPorPlaca } from '@/modules/clientes/clientes.repo';
-import { buscarPorPlacaAction, cadastroRapidoAction, salvarClienteAction, salvarVeiculoAction } from '@/modules/clientes/clientes.actions';
+import { buscarPorPlacaAction, cadastroRapidoAction, salvarClienteAction, salvarTelefoneClienteAction, salvarVeiculoAction } from '@/modules/clientes/clientes.actions';
 import { createAuthFixtures, type AuthFixtures } from '../helpers/auth';
 import { withTestDatabase } from '../helpers/db';
 import { createHttp } from '../helpers/http';
@@ -208,5 +208,25 @@ describe('clientes.actions', () => {
       const r = await buscarPorPlacaAction({ placa: 'AAA1111' });
       expect(r).toMatchObject({ ok: true, data: { cliente: { nome: 'Ana', telefone: '+5511988887777', observacoes: 'vip' } } });
       expect(await buscarPorPlacaAction({ placa: 'BBB2222' })).toEqual({ ok: true, data: null });
+    }));
+
+  it('salvarTelefoneClienteAction: normaliza, recusa telefone inválido/campo extra, lavador e outro tenant', () =>
+    run(async (db, f) => {
+      const [cli] = await db.insert(clientes).values({ tenantId: f.a.tenantId, nome: 'Ana', observacoes: 'vip' }).returning();
+      const [cliB] = await db.insert(clientes).values({ tenantId: f.b.tenantId, nome: 'Do B' }).returning();
+      const telefones = async () => (await db.select({ nome: clientes.nome, telefone: clientes.telefone }).from(clientes)).map((c) => `${c.nome}:${c.telefone}`).sort();
+
+      await comoLavador(f);
+      expect(await salvarTelefoneClienteAction({ clienteId: cli.id, telefone: '11988887777' })).toEqual(NEGADO);
+
+      await como(f, f.a.membros.recepcao.userId);
+      expect(await salvarTelefoneClienteAction({ clienteId: cli.id, telefone: '123' })).toMatchObject({ ok: false, code: 'VALIDACAO', fieldErrors: { telefone: ['Telefone inválido. Use DDD + número.'] } });
+      expect(await salvarTelefoneClienteAction({ clienteId: cli.id, telefone: '' })).toMatchObject({ ok: false, code: 'VALIDACAO', fieldErrors: { telefone: ['Informe o telefone.'] } });
+      expect(await salvarTelefoneClienteAction({ clienteId: cli.id, telefone: '11988887777', nome: 'X' })).toMatchObject({ ok: false, code: 'VALIDACAO' });
+      expect(await salvarTelefoneClienteAction({ clienteId: cliB.id, telefone: '11988887777' })).toMatchObject({ ok: false, code: 'NAO_ENCONTRADO' });
+      expect(await telefones()).toEqual(['Ana:null', 'Do B:null']);
+
+      expect(await salvarTelefoneClienteAction({ clienteId: cli.id, telefone: '(11) 98888-7777' })).toMatchObject({ ok: true, data: { nome: 'Ana', telefone: '+5511988887777', observacoes: 'vip' } });
+      expect(await telefones()).toEqual(['Ana:+5511988887777', 'Do B:null']);
     }));
 });
