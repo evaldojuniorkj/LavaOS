@@ -7,6 +7,7 @@ import type { TenantContext } from '@/lib/auth/types';
 import { getDatabase } from '@/lib/db/client';
 import { ordensServico, osContadores, osEventos, osItens } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
+import { publicar } from '@/lib/realtime/publicar';
 import { INT4_MAX } from '@/modules/catalogo/catalogo.rules';
 import { buscarVeiculo, carregarOs, itensDaOs, lavadorAtivo, servicosComPreco } from './ordens.repo';
 import { calcularTotais, decidirTransicao, validarSelecaoServicos, type StatusOs } from './ordens.rules';
@@ -96,6 +97,7 @@ export async function abrirOs(ctx: TenantContext, input: z.output<typeof abrirOs
       })),
     );
     await tx.insert(osEventos).values({ tenantId: ctx.tenantId, osId: os.id, tipo: 'status', para: 'aguardando', membroId: ctx.memberId });
+    await publicar(tx, { tenantId: ctx.tenantId, osId: os.id, tipo: 'os_criada' });
     return toOsView(ctx.perfil, (await carregarOs(ctx, os.id, tx))!);
   });
 }
@@ -206,6 +208,8 @@ export async function transitarOs(
       { tenantId: ctx.tenantId, osId: os.id, tipo: 'status', de: os.status, para: i.para, membroId: ctx.memberId, motivo: i.motivo || null },
       ...(responsavelId !== os.responsavelId ? [{ tenantId: ctx.tenantId, osId: os.id, tipo: 'responsavel' as const, de: os.responsavelId, para: responsavelId, membroId: ctx.memberId }] : []),
     ]);
+    await publicar(tx, { tenantId: ctx.tenantId, osId: os.id, tipo: 'status' });
+    if (responsavelId !== os.responsavelId) await publicar(tx, { tenantId: ctx.tenantId, osId: os.id, tipo: 'responsavel' });
     return view(tx, ctx, os.id);
   });
 }
@@ -223,6 +227,7 @@ export async function atribuirResponsavel(ctx: TenantContext, i: { osId: string;
       .set({ responsavelId: i.membroId, atribuidoEm: i.membroId ? sql`now()` : null })
       .where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, os.id)));
     await tx.insert(osEventos).values({ tenantId: ctx.tenantId, osId: os.id, tipo: 'responsavel', de: os.responsavelId, para: i.membroId, membroId: ctx.memberId });
+    await publicar(tx, { tenantId: ctx.tenantId, osId: os.id, tipo: 'responsavel' });
     return view(tx, ctx, os.id);
   });
 }
@@ -252,6 +257,7 @@ export async function editarItens(ctx: TenantContext, i: z.output<typeof editarI
     const totais = cabeNoBanco(calcularTotais({ valoresItens: [...ficam.map((a) => a.valorCentavos), ...novos.map((s) => s.valorCentavos)], descontoCentavos: os.descontoCentavos, acrescimoCentavos: os.acrescimoCentavos }));
     await tx.update(ordensServico).set(totais).where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, os.id)));
     await tx.insert(osEventos).values({ tenantId: ctx.tenantId, osId: os.id, tipo: 'itens', de: removidos.length ? json(removidos) : null, para: novos.length ? json(novos.map((n) => ({ nome: n.nome, valorCentavos: n.valorCentavos }))) : null, membroId: ctx.memberId });
+    await publicar(tx, { tenantId: ctx.tenantId, osId: os.id, tipo: 'itens' });
     return view(tx, ctx, os.id);
   });
 }
@@ -272,6 +278,7 @@ export async function ajustarValor(ctx: TenantContext, i: z.output<typeof ajusta
       para: json({ descontoCentavos: i.descontoCentavos, acrescimoCentavos: i.acrescimoCentavos, totalCentavos: totais.totalCentavos }),
       membroId: ctx.memberId,
     });
+    await publicar(tx, { tenantId: ctx.tenantId, osId: os.id, tipo: 'valor' });
     return view(tx, ctx, os.id);
   });
 }

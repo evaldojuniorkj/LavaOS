@@ -14,7 +14,7 @@ export function createDatabase(url: string): { db: Database; close(): Promise<vo
 
 // globalThis sobrevive ao HMR do dev, evitando um pool novo a cada reload.
 const g = globalThis as { __lavaosDb?: Database };
-/** Pool compartilhado do runtime. A conexão LISTEN dedicada da Fase 1 ficará fora dele. */
+/** Pool compartilhado do runtime. A conexão LISTEN dedicada fica fora dele (src/lib/realtime/listener.ts). */
 export function getDatabase(): Database {
   return (g.__lavaosDb ??= createDatabase(getServerEnv().DATABASE_URL).db);
 }
