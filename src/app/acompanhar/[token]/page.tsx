@@ -53,12 +53,14 @@ function Placa({ placa }: { placa: string }) {
 
 export default async function AcompanharPage({ params }: { params: Promise<{ token: string }> }) {
   const os = await buscarOsPublica((await params).token);
-  // token malformado volta sem I/O; cede uma volta do event loop para que metadata/viewport já tenham sido transmitidos,
-  // como quando há consulta ao banco: a ordem dos chunks (e o HTML) fica idêntica para todo token inválido
+  // Só cosmético para o teste de HTML byte a byte: sem I/O (token malformado) a página terminava antes dos chunks de
+  // metadata/viewport e a ordem do streaming mudava. Não é controle de segurança (a resposta já é a mesma em conteúdo).
   await new Promise((r) => setImmediate(r));
   if (!os) return <Indisponivel />;
   const atual = ETAPAS.findIndex((e) => e.status === os.status);
   const cancelada = os.status === 'cancelada';
+  // só o líquido, sem detalhar desconto/acréscimo: explica por que o total difere da soma dos serviços
+  const ajuste = os.totalCentavos - os.itens.reduce((soma, i) => soma + i.valorCentavos, 0);
   return (
     <main className="mx-auto max-w-md px-4 py-8">
       <p className="text-base font-semibold text-suave">{os.lavaJato.nome}</p>
@@ -116,6 +118,15 @@ export default async function AcompanharPage({ params }: { params: Promise<{ tok
             </li>
           ))}
         </ul>
+        {ajuste !== 0 && (
+          <p className="mt-2 flex justify-between gap-4 text-base text-tinta">
+            <span>{ajuste < 0 ? 'Desconto' : 'Acréscimo'}</span>
+            <span className="tabular-nums">
+              {ajuste < 0 ? '−' : '+'}
+              {reais(Math.abs(ajuste))}
+            </span>
+          </p>
+        )}
         <p className="mt-4 flex justify-between gap-4 border-t border-linha pt-3 text-lg font-bold text-tinta">
           <span>Total</span>
           <span className="tabular-nums">{reais(os.totalCentavos)}</span>

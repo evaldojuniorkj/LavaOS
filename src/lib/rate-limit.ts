@@ -21,6 +21,23 @@ export function criarLimitador(maxChaves = 10_000) {
 
 export const limitar = criarLimitador();
 
+// shortcut: memória de um único processo; trocar por tabela se escalar para várias instâncias
+const abertos = new Map<string, number>();
+/** Reserva uma das `max` conexões abertas da chave; devolve a liberação (idempotente) ou null se já estiver no teto. */
+export function reservarVaga(chave: string, max: number): (() => void) | null {
+  const n = abertos.get(chave) ?? 0;
+  if (n >= max) return null;
+  abertos.set(chave, n + 1);
+  let livre = false;
+  return () => {
+    if (livre) return;
+    livre = true;
+    const resto = (abertos.get(chave) ?? 1) - 1;
+    if (resto > 0) abertos.set(chave, resto);
+    else abertos.delete(chave); // sem conexão aberta, a chave sai: a memória acompanha as conexões vivas
+  };
+}
+
 export const MUITAS_REQUISICOES = 'Muitas requisições. Aguarde um minuto e tente de novo.';
 
 /** 429 genérico, igual para qualquer token (válido ou não). */

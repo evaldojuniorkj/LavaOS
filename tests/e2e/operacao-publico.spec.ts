@@ -20,7 +20,7 @@ async function visitante(browser: Browser): Promise<Page> {
 }
 
 /** OS inserida direto no estado desejado (veículo da fixture); o contador acompanha para não colidir com a Nova OS. */
-async function inserirOs(status: 'entregue' | 'cancelada', ha: number) {
+async function inserirOs(status: 'entregue' | 'cancelada', ha: number, totalCentavos = 0) {
   const t = await um<{ id: string }>('select id from lava_jatos where slug = $1', [E2E_PILOT_SLUG]);
   const { ultimo } = await um<{ ultimo: number }>(
     'insert into os_contadores (tenant_id, ultimo) values ($1, 1) on conflict (tenant_id) do update set ultimo = os_contadores.ultimo + 1 returning ultimo',
@@ -29,9 +29,9 @@ async function inserirOs(status: 'entregue' | 'cancelada', ha: number) {
   const token = tokenAleatorio();
   const quando = new Date(Date.now() - ha);
   const os = await um<{ id: string }>(
-    `insert into ordens_servico (tenant_id, numero, veiculo_id, aberta_por, status, token_publico, entregue_em, cancelada_em, motivo_cancelamento)
-     values ($1, $2, (select id from veiculos where tenant_id = $1 and placa = 'EXS1A23'), (select id from membros where tenant_id = $1 and nome_exibicao = 'Recepcao E2E'), $3, $4, $5, $6, $7) returning id`,
-    [t.id, ultimo, status, token, status === 'entregue' ? quando : null, status === 'cancelada' ? quando : null, status === 'cancelada' ? 'teste' : null],
+    `insert into ordens_servico (tenant_id, numero, veiculo_id, aberta_por, status, token_publico, entregue_em, cancelada_em, motivo_cancelamento, total_centavos)
+     values ($1, $2, (select id from veiculos where tenant_id = $1 and placa = 'EXS1A23'), (select id from membros where tenant_id = $1 and nome_exibicao = 'Recepcao E2E'), $3, $4, $5, $6, $7, $8) returning id`,
+    [t.id, ultimo, status, token, status === 'entregue' ? quando : null, status === 'cancelada' ? quando : null, status === 'cancelada' ? 'teste' : null, totalCentavos],
   );
   return { token, tenantId: t.id, osId: os.id };
 }
@@ -165,7 +165,29 @@ test('SSE do token A nunca entrega eventos de outra OS', async ({ browser }) => 
   await notificar(randomUUID(), a.osId, 'itens'); // mesmo id em outro tenant
   await notificar(a.tenantId, a.osId, 'valor');
   await expect.poll(() => pub.evaluate(() => (window as unknown as { recebidos: string[] }).recebidos)).toEqual(['{"tipo":"valor"}']);
-  await pub.waitForTimeout(300);
-  expect(await pub.evaluate(() => (window as unknown as { recebidos: string[] }).recebidos)).toEqual(['{"tipo":"valor"}']);
+  await pub.context().close();
+});
+
+test('desconto ou acréscimo aparece numa linha só entre os serviços e o total; sem ajuste, nenhuma linha', async ({ browser }) => {
+  const pub = await visitante(browser);
+  for (const [total, linha] of [
+    [6000, /Desconto\s*−R\$ 10,00/],
+    [8500, /Acréscimo\s*\+R\$ 15,00/],
+    [7000, null],
+  ] as const) {
+    const os = await inserirOs('entregue', DIA, total);
+    for (const [nome, valor] of [['Lavagem completa', 5000], ['Cera', 2000]] as const) {
+      await pool.query(
+        `insert into os_itens (tenant_id, os_id, servico_id, porte_id, nome_servico, valor_centavos, comissao_tipo, comissao_valor)
+         values ($1, $2, (select id from servicos where tenant_id = $1 and nome = $3), (select id from portes where tenant_id = $1 and nome = 'Pequeno'), $3, $4, 'percentual', 3000)`,
+        [os.tenantId, os.osId, nome, valor],
+      );
+    }
+    await pub.goto(`/acompanhar/${os.token}`);
+    const servicos = pub.getByRole('region', { name: 'Serviços' });
+    await expect(servicos).toContainText(`Total${total === 6000 ? 'R$ 60,00' : total === 8500 ? 'R$ 85,00' : 'R$ 70,00'}`);
+    if (linha) await expect(servicos).toContainText(linha);
+    else for (const t of ['Desconto', 'Acréscimo']) await expect(servicos).not.toContainText(t);
+  }
   await pub.context().close();
 });

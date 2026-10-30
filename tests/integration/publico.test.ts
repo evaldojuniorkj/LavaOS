@@ -205,4 +205,18 @@ describe('SSE público', () => {
       expect(r.headers.get('retry-after')).toBe('60');
       expect(await r.text()).toBe('Muitas requisições. Aguarde um minuto e tente de novo.');
     }));
+
+  it('streams abertos por IP: o 6º simultâneo recebe 429 genérico e fechar um libera a vaga', () =>
+    run(async ({ os }) => {
+      const ip = '10.8.0.2';
+      const acs = Array.from({ length: 5 }, () => new AbortController());
+      for (const ac of acs) expect((await abrir(os.tokenPublico, ip, ac.signal)).status).toBe(200);
+      const r = await abrir(os.tokenPublico, ip);
+      expect(r.status).toBe(429);
+      expect(await r.text()).toBe('Muitas requisições. Aguarde um minuto e tente de novo.');
+      acs[0].abort();
+      const ac = new AbortController();
+      expect((await abrir(os.tokenPublico, ip, ac.signal)).status).toBe(200);
+      for (const a of [...acs, ac]) a.abort();
+    }));
 });
