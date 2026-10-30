@@ -5,7 +5,7 @@ import { testUrls } from '../helpers/test-db';
 import { E2E_PILOT_SLUG } from './global-setup';
 import { entrarLavador, entrarStaff, pin, semRolagemHorizontal } from './login';
 
-// Roda nos projetos desktop (1280) e mobile (390). Contagens são relativas: o banco é compartilhado com os outros specs.
+// Roda nos projetos desktop (1280), mobile (390) e android-small (360). Contagens são relativas: o banco é compartilhado com os outros specs.
 const pool = new pg.Pool({ connectionString: testUrls.owner, max: 1 });
 const um = async <T = Record<string, string>>(sql: string, params: unknown[] = []) => (await pool.query(sql, params)).rows[0] as T;
 
@@ -108,6 +108,7 @@ test('recepção abre o painel pelo menu: vê só contagens (sem R$, link públi
   await expect(page).toHaveURL('/painel');
   for (const t of ['Aguardando', 'Em lavagem', 'Pronto', 'Entregues hoje']) await expect(cartao(page, t)).toBeVisible();
   await expect(page.getByRole('region', { name: 'OSs atrasadas' }).getByRole('listitem').first()).toBeVisible();
+  await semRolagemHorizontal(page);
   const corpos = [await (await page.request.get('/painel')).text(), await (await page.request.get('/painel', { headers: { RSC: '1' } })).text(), await page.locator('body').innerText()];
   for (const c of corpos) {
     for (const p of ['R$', 'acompanhar/', '988887777', '977776666', 'Cliente Existente E2E']) expect(c, p).not.toContain(p);

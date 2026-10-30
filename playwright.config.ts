@@ -10,6 +10,7 @@ const TEST_DB = testUrls.app;
 assertTestDb(TEST_DB);
 // `pnpm verify:operacao` acabou de rodar `pnpm build` e reaproveita; `pnpm test:e2e` sozinho sempre compila de novo.
 const LAVADOR = /operacao-lavador\.spec\.ts$/;
+const PAINEL = /painel\.spec\.ts$/;
 const ONBOARDING = /operacao-primeiro-acesso\.spec\.ts$/;
 const ONBOARDING_BASE = `http://localhost:${E2E_ONBOARDING.port}`;
 const BUILD = process.env.E2E_REUSE_BUILD === '1' ? '' : 'pnpm build && ';
@@ -59,7 +60,7 @@ export default defineConfig({
     },
     // app do lavador (PWA Android): só o spec dele, no Pixel 7 e no menor Android comum
     { name: 'android', testMatch: LAVADOR, use: { ...devices['Pixel 7'], viewport: { width: 412, height: 915 }, extraHTTPHeaders: { 'x-real-ip': '10.0.0.3' } } },
-    { name: 'android-small', testMatch: LAVADOR, use: { ...devices['Pixel 7'], viewport: { width: 360, height: 640 }, extraHTTPHeaders: { 'x-real-ip': '10.0.0.4' } } },
+    { name: 'android-small', testMatch: [LAVADOR, PAINEL], use: { ...devices['Pixel 7'], viewport: { width: 360, height: 640 }, extraHTTPHeaders: { 'x-real-ip': '10.0.0.4' } } },
   ],
   webServer: [
     {

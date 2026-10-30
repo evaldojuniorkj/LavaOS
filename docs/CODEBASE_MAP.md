@@ -132,12 +132,12 @@ Redireciona ao login quem não tem cookie (`/inicio`, `/painel`, `/fila`, `/lava
 
 | Pasta / arquivo | Papel |
 |---|---|
-| `unit/` (13) | Regras puras: auth/rotas, env, equipe, permissões, PIN, catálogo, clientes, WhatsApp, ordens, visões, hub, rate limit, primeiro acesso |
-| `integration/` (21) | Postgres real em `lavaos_test`: schema/constraints, guards, contexto, auth, equipe, catálogo, clientes, ordens (abrir, transições, concorrência, edição, fila), público, tempo real, primeiro acesso, seed |
+| `unit/` (15) | Regras puras: painel (`painel.rules`), auth/rotas, env, equipe, permissões, PIN, catálogo, clientes, WhatsApp, ordens, visões, hub, rate limit, primeiro acesso |
+| `integration/` (24) | Postgres real em `lavaos_test`: painel (`painel-repo`, `painel-actions`), lock de suítes (`lock-suites`), schema/constraints, guards, contexto, auth, equipe, catálogo, clientes, ordens (abrir, transições, concorrência, edição, fila), público, tempo real, primeiro acesso, seed |
 | `e2e/foundation-*.spec.ts` | Login, equipe e suíte adversarial da Fase 0 |
 | `e2e/operacao-fila.spec.ts`, `operacao-whatsapp.spec.ts`, `operacao-publico.spec.ts` | Fila/Nova OS, botões `wa.me` e link público (projetos `desktop` e `mobile` 390×844) |
 | `e2e/operacao-fluxo.spec.ts` | Fluxo ponta a ponta (recepção → lavador no celular → SSE → pronto → avisar → entregar → link público) e OS cancelada somente leitura (`desktop` e `mobile`) |
-| `e2e/painel.spec.ts` | Painel: SSE sem recarregar, OS atrasada, recepção sem R$/telefone, redirecionamentos (`desktop` e `mobile`) |
+| `e2e/painel.spec.ts` | Painel: SSE sem recarregar, OS atrasada, recepção sem R$/telefone, redirecionamentos (`desktop`, `mobile` e `android-small` 360×640) |
 | `e2e/operacao-lavador.spec.ts` | App do lavador (projetos `android` 412×915 e `android-small` 360×640) |
 | `e2e/operacao-primeiro-acesso.spec.ts` | Assistente (`onboarding-desktop` e `onboarding-mobile`, servidor `:3101`) |
 | `e2e/global-setup.ts`, `e2e/login.ts` | Zera `lavaos_test`, migra (e copia as migrations para o schema `onboarding`), cria fixtures com segredos por execução; helpers de login |
@@ -145,4 +145,4 @@ Redireciona ao login quem não tem cookie (`/inicio`, `/painel`, `/fila`, `/lava
 
 ## Fora desta fase
 
-Painel (Fase 2), app nativo (3), pagamento/caixa (4), geração de comissões (5), agenda/relatórios (6), avaliação (7), produção (8), fidelidade (9); reabrir OS entregue; WhatsApp automático.
+App nativo (3), pagamento/caixa (4), geração de comissões (5), agenda/relatórios (6), avaliação (7), produção (8), fidelidade (9); reabrir OS entregue; WhatsApp automático.
