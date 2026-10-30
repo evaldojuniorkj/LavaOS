@@ -1,0 +1,85 @@
+import 'server-only';
+import { and, asc, eq, inArray } from 'drizzle-orm';
+import type { TenantContext } from '@/lib/auth/types';
+import { getDatabase } from '@/lib/db/client';
+import { clientes, membros, ordensServico, osItens, precos, servicos, veiculos } from '@/lib/db/schema';
+import type { Database } from '@/lib/db/types';
+import type { OsCompleta } from './ordens.views';
+
+/** Database ou transação: só leitura. */
+type Leitor = Pick<Database, 'select'>;
+
+export async function buscarVeiculo(ctx: TenantContext, id: string, db: Leitor = getDatabase()) {
+  const [v] = await db
+    .select({ id: veiculos.id, porteId: veiculos.porteId, clienteId: veiculos.clienteId })
+    .from(veiculos)
+    .where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.id, id)));
+  return v ?? null;
+}
+
+/** Só serviços ativos do tenant com preço para o porte; quem faltar na resposta está indisponível. */
+export function servicosComPreco(ctx: TenantContext, ids: string[], porteId: string, db: Leitor = getDatabase()) {
+  return db
+    .select({
+      id: servicos.id,
+      nome: servicos.nome,
+      adicional: servicos.adicional,
+      comissaoTipo: servicos.comissaoTipo,
+      comissaoValor: servicos.comissaoValor,
+      valorCentavos: precos.valorCentavos,
+    })
+    .from(servicos)
+    .innerJoin(precos, and(eq(precos.tenantId, servicos.tenantId), eq(precos.servicoId, servicos.id), eq(precos.porteId, porteId)))
+    .where(and(eq(servicos.tenantId, ctx.tenantId), eq(servicos.ativo, true), inArray(servicos.id, ids)));
+}
+
+export async function lavadorAtivo(ctx: TenantContext, id: string, db: Leitor = getDatabase()): Promise<boolean> {
+  const [m] = await db
+    .select({ id: membros.id })
+    .from(membros)
+    .where(and(eq(membros.tenantId, ctx.tenantId), eq(membros.id, id), eq(membros.perfil, 'lavador'), eq(membros.ativo, true)));
+  return !!m;
+}
+
+export async function carregarOs(ctx: TenantContext, id: string, db: Leitor = getDatabase()): Promise<OsCompleta | null> {
+  const [row] = await db
+    .select({
+      os: ordensServico,
+      veiculo: { placa: veiculos.placa, modelo: veiculos.modelo, cor: veiculos.cor },
+      cliente: { nome: clientes.nome, telefone: clientes.telefone },
+      responsavel: { id: membros.id, nomeExibicao: membros.nomeExibicao },
+    })
+    .from(ordensServico)
+    .innerJoin(veiculos, and(eq(veiculos.tenantId, ordensServico.tenantId), eq(veiculos.id, ordensServico.veiculoId)))
+    .leftJoin(clientes, and(eq(clientes.tenantId, ordensServico.tenantId), eq(clientes.id, ordensServico.clienteId)))
+    .leftJoin(membros, and(eq(membros.tenantId, ordensServico.tenantId), eq(membros.id, ordensServico.responsavelId)))
+    .where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, id)));
+  if (!row) return null;
+  const itens = await db
+    .select({ id: osItens.id, nome: osItens.nomeServico, valorCentavos: osItens.valorCentavos })
+    .from(osItens)
+    .where(and(eq(osItens.tenantId, ctx.tenantId), eq(osItens.osId, id)))
+    .orderBy(asc(osItens.createdAt), asc(osItens.id));
+  const { os } = row;
+  return {
+    id: os.id,
+    numero: os.numero,
+    status: os.status,
+    observacoes: os.observacoes,
+    subtotalCentavos: os.subtotalCentavos,
+    descontoCentavos: os.descontoCentavos,
+    acrescimoCentavos: os.acrescimoCentavos,
+    totalCentavos: os.totalCentavos,
+    tokenPublico: os.tokenPublico,
+    veiculo: row.veiculo,
+    cliente: row.cliente,
+    itens,
+    responsavel: row.responsavel,
+    entradaEm: os.entradaEm,
+    atribuidoEm: os.atribuidoEm,
+    inicioLavagemEm: os.inicioLavagemEm,
+    prontoEm: os.prontoEm,
+    entregueEm: os.entregueEm,
+    canceladaEm: os.canceladaEm,
+  };
+}
