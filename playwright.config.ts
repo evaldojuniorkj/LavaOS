@@ -9,6 +9,7 @@ const BASE = `http://localhost:${PORT}`;
 const TEST_DB = testUrls.app;
 assertTestDb(TEST_DB);
 // `pnpm verify:foundation` acabou de rodar `pnpm build` e reaproveita; `pnpm test:e2e` sozinho sempre compila de novo.
+const LAVADOR = /operacao-lavador\.spec\.ts$/;
 const BUILD = process.env.E2E_REUSE_BUILD === '1' ? '' : 'pnpm build && ';
 
 export default defineConfig({
@@ -22,16 +23,20 @@ export default defineConfig({
   use: { baseURL: BASE, trace: process.env.CI ? 'off' : 'retain-on-failure', screenshot: 'off', video: 'off' },
   projects: [
     // IP distinto por projeto: cada um tem sua própria cota de tentativas PIN por origem
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], extraHTTPHeaders: { 'x-real-ip': '10.0.0.1' } } },
+    { name: 'desktop', testIgnore: LAVADOR, use: { ...devices['Desktop Chrome'], extraHTTPHeaders: { 'x-real-ip': '10.0.0.1' } } },
     {
       name: 'mobile',
+      testIgnore: LAVADOR,
       use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 }, extraHTTPHeaders: { 'x-real-ip': '10.0.0.2' } },
     },
+    // app do lavador (PWA Android): só o spec dele, no Pixel 7 e no menor Android comum
+    { name: 'android', testMatch: LAVADOR, use: { ...devices['Pixel 7'], viewport: { width: 412, height: 915 }, extraHTTPHeaders: { 'x-real-ip': '10.0.0.3' } } },
+    { name: 'android-small', testMatch: LAVADOR, use: { ...devices['Pixel 7'], viewport: { width: 360, height: 640 }, extraHTTPHeaders: { 'x-real-ip': '10.0.0.4' } } },
   ],
   // Servidor de produção (build standalone, como na VPS): sem HMR/compilação sob demanda do `next dev`.
-  // `next start` não serve `output: standalone`; os estáticos são copiados como no deploy.
+  // `next start` não serve `output: standalone`; os estáticos e o public/ (ícones do PWA) são copiados como no deploy.
   webServer: {
-    command: `${BUILD}cp -R .next/static .next/standalone/.next/ && node .next/standalone/server.js`,
+    command: `${BUILD}cp -R .next/static .next/standalone/.next/ && cp -R public .next/standalone/ && node .next/standalone/server.js`,
     url: `${BASE}/api/auth/get-session`,
     reuseExistingServer: false,
     timeout: 300_000,

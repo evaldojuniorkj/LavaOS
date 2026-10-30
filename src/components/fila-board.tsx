@@ -12,7 +12,7 @@ import { centesimosParaTexto, decimalParaCentesimos } from '@/modules/catalogo/c
 import { ajustarValorAction, atribuirResponsavelAction, editarItensAction, listarFilaAction, listarLavadoresAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
 import { ERROS_RECARREGAR_FILA, type StatusOs } from '@/modules/ordens/ordens.rules';
 import type { OsView, OsViewGestao } from '@/modules/ordens/ordens.views';
-import { cn } from '@/lib/utils';
+import { cn, tempoDesde } from '@/lib/utils';
 
 export type Pode = { assumir: boolean; atribuir: boolean; corrigir: boolean; entregar: boolean; cancelar: boolean; ajustarValor: boolean; verValores: boolean };
 type Lavador = { membroId: string; nome: string; livre: boolean; sugerido: boolean };
@@ -27,11 +27,6 @@ const comValores = (os: OsView): os is OsViewGestao => 'totalCentavos' in os; //
 const reais = (c: number) => `R$ ${centesimosParaTexto(c)}`;
 const erroDe = (r: Extract<ActionResult<unknown>, { ok: false }>) =>
   r.code === 'ACESSO_NEGADO' ? 'Seu perfil não pode fazer isso.' : r.code === 'VALIDACAO' ? (Object.values(r.fieldErrors ?? {})[0]?.[0] ?? 'Dados inválidos.') : r.message;
-
-function tempoDesde(d: Date, agora: number) {
-  const min = Math.max(0, Math.floor((agora - new Date(d).getTime()) / 60_000));
-  return min < 60 ? `há ${min} min` : `há ${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')} min`;
-}
 
 /** Fila em tempo real: o servidor manda a visão do perfil; cada evento SSE só dispara uma recarga. */
 export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[]; pode: Pode; meuId: string; servicos: { id: string; nome: string }[] }) {

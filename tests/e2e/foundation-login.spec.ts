@@ -73,7 +73,7 @@ test('lavador entra por usuário/PIN com zero inicial; erro de PIN usa a mensage
   await expect(page.getByLabel('PIN', { exact: true })).toHaveValue(pin()); // zero inicial preservado
   await expect(page.getByLabel('PIN', { exact: true })).toHaveAttribute('inputmode', 'numeric');
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page).toHaveURL('/fila');
+  await expect(page).toHaveURL('/lavador');
   await expect(page.getByRole('heading', { name: 'Fila', level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Equipe' })).toHaveCount(0);
   const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));

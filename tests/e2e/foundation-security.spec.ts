@@ -150,7 +150,7 @@ test('lavador e recepção reenviando as actions reais do dono recebem acesso ne
 
   const lav = await novoContexto(browser);
   await entrarLavador(lav, 'lavador.e2e', pin());
-  await expect(lav).toHaveURL('/fila');
+  await expect(lav).toHaveURL('/lavador');
   const rec = await novoContexto(browser);
   await entrarStaff(rec, 'recepcao@e2e.test');
   await expect(rec).toHaveURL('/fila');
@@ -159,7 +159,8 @@ test('lavador e recepção reenviando as actions reais do dono recebem acesso ne
   for (const quem of [lav, rec]) {
     // rota de staff por navegação: nada da equipe é renderizado
     await quem.goto('/configuracoes/equipe');
-    await expect(quem.getByRole('heading', { name: 'Acesso negado' })).toBeVisible();
+    if (quem === lav) await expect(quem).toHaveURL('/lavador'); // o lavador é mandado ao app dele
+    else await expect(quem.getByRole('heading', { name: 'Acesso negado' })).toBeVisible();
     await expect(quem.getByText('Dono E2E')).toHaveCount(0);
     for (const perfil of ['dono', 'gerente', 'lavador']) {
       const r = await reenviar(quem.request, criar, [{ perfil, nomeExibicao: `Promovido ${s}`, ...(perfil === 'lavador' ? { usuario: `promo.${s}`, pin: '1234' } : { email: `promo.${s}@e2e.test`, senha: 'senha-forte-123' }) }]);
@@ -230,7 +231,7 @@ test('cookie antigo após desativação ou reset de PIN perde get-session, pági
   const criar = cap();
   const lav = await novoContexto(browser);
   await entrarLavador(lav, `antigo.${s}`, '0777');
-  await expect(lav).toHaveURL('/fila');
+  await expect(lav).toHaveURL('/lavador');
   // o cookie salvo antes da revogação vai fixo em todo pedido: o servidor apagar o cookie não muda o teste
   const { baseURL, extraHTTPHeaders } = test.info().project.use;
   const velhos: APIRequestContext[] = [];

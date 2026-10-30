@@ -115,10 +115,10 @@ test('sem telefone, "usar só desta vez" abre o link sem gravar; OS sem cliente 
 test('lavador não vê botões de aviso, telefone nem token (tela, HTML e RSC)', async ({ page }) => {
   const { placa, token } = await semear('pronto', '+5511966665555');
   await entrarLavador(page, 'lavador.e2e', pin());
-  await expect(page).toHaveURL('/fila');
+  await expect(page).toHaveURL('/lavador');
   await expect(cartao(page, placa)).toBeVisible();
   await expect(page.getByText(/Enviar acompanhamento|Avisar pronto/)).toHaveCount(0);
-  for (const r of [await page.request.get('/fila'), await page.request.get('/fila', { headers: { RSC: '1' } })]) {
+  for (const r of [await page.request.get('/lavador'), await page.request.get('/lavador', { headers: { RSC: '1' } })]) {
     const body = await r.text();
     expect(body).toContain(placa); // controle: a resposta tem a fila
     for (const proibido of [token, '966665555', 'wa.me', 'acompanhar/', 'Enviar acompanhamento', 'Avisar pronto']) expect(body, proibido).not.toContain(proibido);

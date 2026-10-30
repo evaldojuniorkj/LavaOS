@@ -26,7 +26,7 @@ const mensagem = (r: Extract<ActionResult<unknown>, { ok: false }>) => (r.code =
  * Nova OS pela placa: achou ⇒ usa o veículo; não achou ⇒ cadastro rápido. Serviços do porte do veículo
  * (valores só chegam para quem vê R$). Responsável é opcional e só para o balcão (`lavadores` != null).
  */
-export function NovaOsForm({ portes, servicos, lavadores }: { portes: Porte[]; servicos: Record<string, Servico[]>; lavadores: Lavador[] | null }) {
+export function NovaOsForm({ portes, servicos, lavadores, titulo = 'Nova OS', destino = '/fila' }: { portes: Porte[]; servicos: Record<string, Servico[]>; lavadores: Lavador[] | null; titulo?: string; destino?: string }) {
   const router = useRouter();
   const [placa, setPlaca] = useState('');
   const [busca, setBusca] = useState<Busca | null>(null);
@@ -86,14 +86,14 @@ export function NovaOsForm({ portes, servicos, lavadores }: { portes: Porte[]; s
         setErros(r.fieldErrors ?? {});
         return setErro(mensagem(r));
       }
-      router.push('/fila');
+      router.push(destino);
     });
   }
 
   const nomePorte = (id: string) => portes.find((p) => p.id === id)?.nome ?? '';
   return (
     <form noValidate onSubmit={abrir} className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold text-tinta">Nova OS</h1>
+      <h1 className="text-2xl font-bold text-tinta">{titulo}</h1>
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-0 flex-1 basis-48">
           <Campo
@@ -112,6 +112,7 @@ export function NovaOsForm({ portes, servicos, lavadores }: { portes: Porte[]; s
             erro={erros.placa?.[0]}
             autoComplete="off"
             autoCapitalize="characters"
+            inputMode="text"
             className="font-mono text-lg uppercase tracking-wider"
           />
         </div>

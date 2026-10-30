@@ -22,4 +22,4 @@ export function proxy(request: NextRequest) {
   return NextResponse.redirect(login);
 }
 
-export const config = { matcher: ['/inicio', '/fila', '/nova-os', '/configuracoes/:path*', '/acompanhar/:path*'] };
+export const config = { matcher: ['/inicio', '/fila', '/lavador/:path*', '/nova-os', '/configuracoes/:path*', '/acompanhar/:path*'] };

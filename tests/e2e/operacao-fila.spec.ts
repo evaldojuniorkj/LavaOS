@@ -1,15 +1,7 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { entrarLavador, entrarStaff, pin, semRolagemHorizontal, SUFIXO } from './login';
+import { entrarLavador, entrarStaff, semRolagemHorizontal, SUFIXO } from './login';
 
-// Catálogo, veículo existente e o segundo lavador vêm do global-setup.
-const PLACA_EXISTENTE = 'EXS1A23';
-// nada disso pode chegar ao lavador: valores, telefone do cliente da fixture, comissão e token público
-const PROIBIDOS_LAVADOR = ['R$', 'Centavos', 'telefone', '988887777', 'comissao', 'token'];
-
-async function semProibidos(page: Page) {
-  const texto = await page.locator('body').innerText();
-  for (const p of PROIBIDOS_LAVADOR) expect(texto, `texto visível: ${p}`).not.toContain(p);
-}
+// Catálogo, veículo existente e o segundo lavador vêm do global-setup. O app do lavador (/lavador) tem o próprio spec.
 
 async function novoContexto(browser: Browser) {
   const opcoes: Record<string, unknown> = { ...test.info().project.use };
@@ -224,59 +216,6 @@ test('cancelar exige motivo', async ({ page }) => {
   await cancelar(page, placa);
 });
 
-test('lavador não recebe nenhum R$ na fila nem na Nova OS', async ({ page, browser }) => {
-  const rec = await novoContexto(browser);
-  await entrar(rec, 'recepcao@e2e.test');
-  const placa = await abrirOsNova(rec);
-  await expect(cartao(rec, placa)).toContainText('R$');
-
-  await entrarLavador(page, 'lavador.e2e', pin());
-  await expect(page).toHaveURL('/fila');
-  await expect(page.getByRole('navigation', { name: 'Principal' }).getByRole('link')).toHaveText(['Fila', 'Nova OS']);
-  await expect(cartao(page, placa)).toBeVisible();
-  await semProibidos(page);
-  await cartao(page, placa).getByRole('button', { name: 'Pegar' }).click();
-  await expect(coluna(page, 'Em lavagem').getByRole('article').filter({ hasText: placa })).toContainText('Lavador E2E');
-  await cartao(page, placa).getByRole('button', { name: 'Marcar pronto' }).click();
-  await expect(coluna(page, 'Pronto').getByRole('article').filter({ hasText: placa })).toBeVisible();
-  await semProibidos(page);
-
-  await page.goto('/nova-os');
-  await page.getByLabel('Placa', { exact: true }).fill(PLACA_EXISTENTE);
-  // o corpo é lido dentro do route, antes de a página poder navegar (ler depois da resposta era instável)
-  let busca = '';
-  const casa = (u: URL) => u.pathname === '/nova-os';
-  await page.route(
-    casa,
-    async (route) => {
-      if (route.request().method() !== 'POST') return route.continue();
-      const r = await route.fetch();
-      busca = await r.text(); // resposta da action buscarPorPlaca
-      await route.fulfill({ response: r });
-    },
-  );
-  await page.getByRole('button', { name: 'Buscar placa' }).click();
-  await expect(page.getByRole('region', { name: 'Veículo encontrado' })).toBeVisible();
-  await page.unroute(casa);
-  expect(busca).toContain('Cliente Existente E2E'); // controle
-  for (const p of PROIBIDOS_LAVADOR) expect(busca, `busca por placa: ${p}`).not.toContain(p);
-  await expect(page.getByRole('region', { name: 'Veículo encontrado' })).toContainText('Cliente Existente E2E');
-  await expect(page.getByRole('checkbox', { name: /Lavagem completa/ })).toBeVisible();
-  await semProibidos(page);
-  await semRolagemHorizontal(page);
-  for (const rota of ['/fila', '/nova-os']) {
-    for (const r of [await page.request.get(rota), await page.request.get(rota, { headers: { RSC: '1' } })]) {
-      const body = await r.text();
-      expect(body, rota).toContain('Lavagem completa'); // controle: a resposta tem os dados da tela
-      for (const proibido of PROIBIDOS_LAVADOR) expect(body, `${rota} ${proibido}`).not.toContain(proibido);
-    }
-  }
-  await rec.reload();
-  await cartao(rec, placa).getByRole('button', { name: 'Entregar' }).click();
-  await expect(cartao(rec, placa)).toHaveCount(0);
-  await rec.context().close();
-});
-
 test('queda do stream mostra Reconectando… e se recupera sozinha', async ({ page }) => {
   await entrar(page, 'recepcao@e2e.test');
   await page.route('**/api/eventos', (r) => r.abort()); // conexão caída (erro de rede): o navegador tenta de novo
@@ -309,7 +248,7 @@ test('lavador com PIN redefinido e stream caído vai ao login (autorização rea
   await expect(linha).toBeVisible();
 
   await entrarLavador(page, `fila.${s}`, '0555');
-  await expect(page).toHaveURL('/fila');
+  await expect(page).toHaveURL('/lavador');
   await page.route('**/api/eventos', (r) => r.abort());
   await page.reload();
   await expect(page.getByRole('status')).toHaveText('Reconectando…');
