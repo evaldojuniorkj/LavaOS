@@ -59,7 +59,8 @@ export function assertPermission(ctx: TenantContext, permissao: Permissao): void
 }
 
 export class AcessoNegadoError extends Error {
-  constructor() {
+  /** Permissão que faltou, quando quem negou sabe qual é (só para o log). */
+  constructor(readonly permissao?: Permissao) {
     super('acesso negado'); // sem nomear o recurso
     this.name = 'AcessoNegadoError';
   }

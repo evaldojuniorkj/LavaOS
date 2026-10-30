@@ -54,11 +54,6 @@ const selectCredential = (db: Database, scope: TenantScope, usuario: string) =>
     .innerJoin(membros, and(eq(membros.tenantId, credenciaisLavador.tenantId), eq(membros.id, credenciaisLavador.membroId)))
     .where(and(eq(credenciaisLavador.tenantId, scope.tenantId), eq(credenciaisLavador.usuarioNormalizado, usuario)));
 
-export async function findCredential(scope: TenantScope, usuario: string): Promise<PinCredential | null> {
-  const [row] = await selectCredential(getDatabase(), scope, usuario);
-  return row && row.perfil === 'lavador' ? row : null;
-}
-
 /**
  * Verifica o PIN com a linha da credencial travada (FOR UPDATE): tentativas concorrentes são serializadas e
  * cada erro é gravado antes da próxima ler o contador. A falha é um retorno, não um throw, então o contador faz COMMIT.

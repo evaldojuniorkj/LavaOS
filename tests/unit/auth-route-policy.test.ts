@@ -53,7 +53,7 @@ describe('isAuthHttpPathAllowed', () => {
 });
 
 describe('destinoPosLogin', () => {
-  it.each(['/inicio', '/configuracoes/equipe'])('aceita caminho interno conhecido %s', (p) => expect(destinoPosLogin(p)).toBe(p));
+  it.each(['/inicio', '/fila', '/nova-os', '/clientes', '/configuracoes/equipe', '/configuracoes/catalogo', '/lavador', '/lavador/nova'])('aceita caminho interno conhecido %s', (p) => expect(destinoPosLogin(p)).toBe(p));
 
   it.each([
     undefined, '', '/', '//evil.example', '/\\evil.example', '\\evil.example', 'https://evil.example', 'javascript:alert(1)',

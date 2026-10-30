@@ -28,7 +28,7 @@ async function executar<S extends z.ZodType>(
   } catch (err) {
     if (err instanceof AcessoNegadoError) {
       // negação do serviço (liderança, alvo que o ator não gere); as do guard já foram registradas por requirePermission
-      if (ctx) console.warn('[auth] acesso negado', { permissao: 'equipe:gerenciar', tenantId: ctx.tenantId, memberId: ctx.memberId, perfil: ctx.perfil });
+      if (ctx) console.warn('[auth] acesso negado', { permissao: err.permissao ?? 'equipe:gerenciar', tenantId: ctx.tenantId, memberId: ctx.memberId, perfil: ctx.perfil });
       return { ok: false, code: 'ACESSO_NEGADO', message: 'acesso negado' };
     }
     if (err instanceof EquipeError) return { ok: false, code: err.code, message: err.message };

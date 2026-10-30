@@ -17,7 +17,8 @@ export function iniciarListener(): void {
   let tentativas = 0;
 
   const conectar = async () => {
-    const client = new Client({ connectionString: url });
+    // keepalive TCP: queda silenciosa da rede (sem FIN) vira erro e reconexão, em vez de um LISTEN mudo para sempre
+    const client = new Client({ connectionString: url, keepAlive: true, keepAliveInitialDelayMillis: 10_000 });
     estado.client = client;
     let caiu = false;
     const cair = () => {

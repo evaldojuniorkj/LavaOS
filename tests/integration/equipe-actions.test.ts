@@ -169,7 +169,7 @@ describe('autorização e isolamento', () => {
       }
     }));
 
-  it('gerente não controla liderança: desativar ou resetar dono/gerente é negado', () =>
+  it('gerente não controla liderança: desativar/resetar dono ou gerente e criar dono é negado, com a permissão certa no log', () =>
     run(async (db, f) => {
       await como(f, f.a.membros.gerente.userId);
       const antes = await estado(db);
@@ -179,7 +179,10 @@ describe('autorização e isolamento', () => {
           expect(await deactivateMemberAction({ memberId: alvo })).toEqual(NEGADO);
           expect(await resetPinAction({ memberId: alvo, pin: '4321' })).toEqual(NEGADO);
         }
-        expect(warn).toHaveBeenCalledTimes(4);
+        expect(await createMemberAction({ perfil: 'dono', nomeExibicao: 'Novo dono', email: novoEmail(), senha: 'senha-forte-1' })).toEqual(NEGADO);
+        expect(warn).toHaveBeenCalledTimes(5);
+        // o log nomeia a permissão que realmente faltou (liderança), não a permissão base da tela
+        expect(warn.mock.calls.map(([, dados]) => (dados as { permissao: string }).permissao)).toEqual(Array(5).fill('equipe:gerenciar_lideranca'));
       } finally {
         warn.mockRestore();
       }

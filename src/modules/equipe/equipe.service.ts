@@ -46,7 +46,7 @@ const linhaMembro = (tx: Tx, ctx: TenantContext, id: string) =>
     .select({ id: membros.id, userId: membros.userId, perfil: membros.perfil, ativo: membros.ativo })
     .from(membros)
     .where(and(eq(membros.tenantId, ctx.tenantId), eq(membros.id, id)))
-    .for('update');
+    .for('no key update'); // não FOR UPDATE: as FKs de OS/eventos para o membro pegam KEY SHARE, que só conflita com FOR UPDATE (evita deadlock com ordens)
 
 /**
  * Toda mutação de equipe trava na mesma ordem — tenant → ator → alvo — com espera limitada.
@@ -65,7 +65,7 @@ async function travarAlvo(tx: Tx, ctx: TenantContext, memberId: string) {
   const ator = await travarAtor(tx, ctx);
   const [alvo] = await linhaMembro(tx, ctx, memberId);
   if (!alvo) throw naoEncontrado(); // inclui membro de outro tenant: nada é revelado
-  if (!canManageTarget(ator.perfil, alvo.perfil)) throw new AcessoNegadoError();
+  if (!canManageTarget(ator.perfil, alvo.perfil)) throw new AcessoNegadoError(alvo.perfil === 'dono' || alvo.perfil === 'gerente' ? 'equipe:gerenciar_lideranca' : 'equipe:gerenciar');
   return { ator, alvo };
 }
 
@@ -76,7 +76,8 @@ export async function createMember(ctx: TenantContext, input: CreateMemberInput,
   return emTransacao(db, async (tx) => {
     const ator = await travarAtor(tx, ctx);
     const lideranca = input.perfil === 'dono' || input.perfil === 'gerente';
-    if (!can(ator.perfil, lideranca ? 'equipe:gerenciar_lideranca' : 'equipe:gerenciar')) throw new AcessoNegadoError();
+    const permissao = lideranca ? 'equipe:gerenciar_lideranca' : 'equipe:gerenciar';
+    if (!can(ator.perfil, permissao)) throw new AcessoNegadoError(permissao);
     return inserirMembro(tx, ctx.tenantId, input, segredo);
   });
 }

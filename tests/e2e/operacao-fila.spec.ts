@@ -97,6 +97,14 @@ test('placa existente preenche modelo e porte', async ({ page }) => {
   await expect(page.getByText('R$ 80,00')).toBeVisible(); // preço do porte do veículo
 });
 
+test('sem sessão, /clientes leva ao login com next e, depois de entrar, volta para /clientes', async ({ page }) => {
+  await page.goto('/clientes');
+  await expect(page).toHaveURL('/login?next=%2Fclientes');
+  await entrarStaff(page, 'recepcao@e2e.test', undefined, page.url());
+  await expect(page).toHaveURL('/clientes');
+  await expect(page.getByText('Sua sessão terminou')).toHaveCount(0);
+});
+
 test('fila mostra colunas Aguardando | Em lavagem | Pronto', async ({ page }) => {
   await entrar(page, 'recepcao@e2e.test');
   await expect(page.getByRole('heading', { level: 2 })).toHaveText([/^Aguardando/, /^Em lavagem/, /^Pronto/]);

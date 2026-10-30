@@ -1,7 +1,7 @@
 # Mapa do código — LavaOS
 
 Gerado a partir da árvore real da branch `fase-1-operacao` em 2026-10-30 01:25 -0400, ao fim da Fase 1 (Operação).
-Contagem (`git ls-files`): 179 arquivos versionados fora de `docs/superpowers/` (sem contar este mapa); `src/` tem 95 arquivos (5516 linhas), `tests/` tem 52 (6365 linhas).
+Contagem (`git ls-files`): 179 arquivos versionados fora de `docs/superpowers/` (sem contar este mapa); `src/` tem 95 arquivos (5512 linhas), `tests/` tem 52 (6434 linhas).
 
 ## Visão geral
 
@@ -122,7 +122,7 @@ Padrão de cada módulo: `*.rules.ts` (regras puras) → `*.repo.ts` (consultas 
 
 ### `proxy.ts`
 
-Redireciona ao login quem não tem cookie (`/inicio`, `/fila`, `/lavador/*`, `/nova-os`, `/configuracoes/*`) e aplica rate limit, `no-referrer` e `noindex` em `/acompanhar/*`.
+Redireciona ao login quem não tem cookie (`/inicio`, `/fila`, `/lavador/*`, `/nova-os`, `/clientes`, `/configuracoes/*`), guardando o retorno em `next`, e aplica rate limit, `no-referrer` e `noindex` em `/acompanhar/*`.
 
 ## `tests/`
 
