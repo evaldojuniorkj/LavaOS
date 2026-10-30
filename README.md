@@ -1,7 +1,7 @@
 # LavaOS
 Projeto de um SAAS para Lava jato.
 
-Estado atual: **Fase 1 — Operação** concluída sobre a Fase 0 — Fundação. O pátio já funciona: catálogo, clientes e veículos, ordens de serviço, fila em tempo real, link público de acompanhamento, avisos por WhatsApp, app do lavador (PWA Android) e assistente de primeiro acesso. Painel, caixa e comissões chegam nas fases seguintes (veja [Limites da Fase 1](#limites-da-fase-1)).
+Estado atual: **Fase 2 — Painel** concluída sobre a Fase 1 — Operação e a Fase 0 — Fundação. Na Fase 1 o pátio já funciona: catálogo, clientes e veículos, ordens de serviço, fila em tempo real, link público de acompanhamento, avisos por WhatsApp, app do lavador (PWA Android) e assistente de primeiro acesso. Caixa e comissões chegam nas fases seguintes (veja [Limites da Fase 1](#limites-da-fase-1)).
 
 ## Ambiente
 
@@ -56,6 +56,16 @@ pnpm dev                       # http://localhost:3000
 - **App do lavador** (`/lavador`): pensado para Android de 360–412 px, uma mão, botões ≥ 48 px, vibração ao confirmar quando o aparelho suporta, tela acesa (Wake Lock) enquanto aberto. O lavador vê só os nomes dos clientes e nunca valores em R$, telefone ou comissão.
 - **Assistente de primeiro acesso** (`/primeiro-acesso`): abaixo.
 
+## Fase 2 — Painel
+
+- **Painel** (`/painel`, permissão `painel:ver`: dono, gerente e recepção): contagens de Aguardando, Em lavagem, Pronto e Entregues hoje, tempo médio de lavagem, lavadores livres/ocupados e OSs atrasadas. Ao vivo por SSE (mais uma recarga a cada 60 s); sem valores em R$, telefone nem link público. Dono e gerente começam no painel, recepção na fila, lavador em `/lavador`.
+- **Atraso:** OS aguardando ou em lavagem há mais de 60 min (aguardando conta da entrada; em lavagem, do início da lavagem).
+- **"Dia"** (Entregues hoje) é o dia civil em America/Sao_Paulo.
+- **Veículo sem placa:** a OS pode abrir sem placa (modelo de 2 a 40 caracteres identifica o carro).
+- **Testes:** unit/integration e E2E dividem `lavaos_test`; um lock mútuo (advisory) impede duas suítes de rodarem ao mesmo tempo.
+- **Redesign de app:** menu lateral no desktop, abas inferiores no celular, placa Mercosul e cores por status.
+- Recebido do dia e caixa aberto/fechado ficam para a Fase 4.
+
 ### Rodar e popular
 
 Mesmos passos de [Ambiente](#ambiente). `pnpm db:seed:dev` cria só o lava jato e o dono; o catálogo (portes, serviços e preços), a equipe e os clientes são cadastrados pelas telas — ou, num banco vazio, pelo assistente de primeiro acesso, que já cria os portes e serviços de exemplo.
@@ -100,7 +110,7 @@ CI: `.github/workflows/quality.yml` (Node de `.node-version`, pnpm de `packageMa
 
 ## Limites da Fase 1
 
-A Fase 1 controla o pátio. **Não existem ainda**: painel do dono/gerente (Fase 2), app nativo (Fase 3), pagamento, caixa e quitação antes da entrega (Fase 4 — aqui "Entregar" não valida pagamento), geração de comissões (Fase 5; a comissão só é cadastrada e copiada na OS), agenda e relatórios (Fase 6), avaliação (Fase 7), produção/deploy (Fase 8) e fidelidade (Fase 9). Também fora: reabrir OS entregue, dividir uma OS entre lavadores e WhatsApp automático (só links `wa.me`).
+A Fase 1 controla o pátio. **Não existem ainda**: app nativo (Fase 3), pagamento, caixa e quitação antes da entrega (Fase 4 — aqui "Entregar" não valida pagamento), geração de comissões (Fase 5; a comissão só é cadastrada e copiada na OS), agenda e relatórios (Fase 6), avaliação (Fase 7), produção/deploy (Fase 8) e fidelidade (Fase 9). Também fora: reabrir OS entregue, dividir uma OS entre lavadores e WhatsApp automático (só links `wa.me`).
 
 0 Fundação → 1 Operação → 2 Painel → 3 App nativo → 4 Dinheiro → 5 Comissões → 6 Gestão → 7 Avaliação → 8 Produção → 9 Fidelidade.
 

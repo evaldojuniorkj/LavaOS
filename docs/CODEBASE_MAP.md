@@ -72,6 +72,7 @@ Padrão de cada módulo: `*.rules.ts` (regras puras) → `*.repo.ts` (consultas 
 | `/` | `page.tsx` | Leva ao início do perfil com sessão válida, senão ao login |
 | `/login` | `login/page.tsx` | Staff (e-mail/senha) e lavador (usuário/PIN) |
 | `/primeiro-acesso` | `primeiro-acesso/page.tsx` | Público; 404 sem `LAVAOS_SETUP_TOKEN` |
+| `/painel` | `(interno)/painel/page.tsx` | Dono, gerente e recepção (`painel:ver`); lavador vai a `/lavador` |
 | `/inicio`, `/fila`, `/nova-os`, `/clientes` | `(interno)/…/page.tsx` | Dono, gerente e recepção (lavador vai a `/lavador`) |
 | `/configuracoes/catalogo`, `/configuracoes/equipe` | `(interno)/configuracoes/…` | Dono e gerente; demais veem "Acesso negado" |
 | `/lavador`, `/lavador/nova` | `(lavador)/lavador/…` | Só lavador (staff vai a `/fila`); layout com barra inferior |
@@ -88,7 +89,8 @@ Padrão de cada módulo: `*.rules.ts` (regras puras) → `*.repo.ts` (consultas 
 
 | Arquivo | Papel |
 |---|---|
-| `app-shell.tsx` | Cabeçalho/navegação por perfil |
+| `app-shell.tsx` | Menu lateral (desktop) e abas inferiores (celular) por perfil |
+| `painel-view.tsx` | Painel ao vivo: cartões de contagem, tempo médio, atrasadas e lavadores; recarga por SSE e a cada 60 s |
 | `login-form.tsx`, `primeiro-acesso-form.tsx` | Login (dois modos, escolha de lava jato) e assistente |
 | `equipe-form.tsx`, `catalogo-form.tsx`, `clientes-form.tsx` | Telas de cadastro |
 | `nova-os-form.tsx` | Nova OS / Nova lavagem: busca da placa, cadastro rápido, serviços, responsável opcional |
@@ -97,6 +99,7 @@ Padrão de cada módulo: `*.rules.ts` (regras puras) → `*.repo.ts` (consultas 
 | `use-eventos.ts` | EventSource com reconexão, "Reconectando…" e ida ao login quando o acesso acaba |
 | `lavador/cartao-os.tsx`, `barra-inferior.tsx`, `instalar-app.tsx`, `sair.tsx`, `use-vibrar.ts`, `use-wake-lock.ts` | App do lavador |
 | `ui/button.tsx`, `ui/input.tsx`, `ui/label.tsx` | Primitivos de UI |
+| `ui/placa.tsx`, `ui/icones.tsx`, `ui/status-visual.ts` | Placa Mercosul, ícones do menu e tinta por status |
 
 ### `lib/`
 
@@ -118,11 +121,12 @@ Padrão de cada módulo: `*.rules.ts` (regras puras) → `*.repo.ts` (consultas 
 | `catalogo` | actions, schemas, service, repo, rules | Portes, serviços, preços e comissão; conversão R$ ↔ centavos |
 | `clientes` | actions, schemas, service, repo, rules, `whatsapp.rules.ts` | Clientes/veículos, placa e telefone normalizados, busca por placa (o lavador recebe só o nome do cliente), mensagens `wa.me` |
 | `ordens` | actions, schemas, service, repo, rules, `ordens.views.ts`, `publico.repo.ts` | Abrir OS, transições com `UPDATE … WHERE status = esperado` e conflito PT-BR, responsável, itens/valor, fila, sugestão de lavador livre, visão por perfil e leitura pública por token |
+| `painel` | actions, repo, rules | Leitura do painel (contagens, tempo médio, lavadores, atrasadas > 60 min; dia em America/Sao_Paulo), sem valores |
 | `lava-jato` | `primeiro-acesso.actions/schemas/service/rules` | Assistente de instalação |
 
 ### `proxy.ts`
 
-Redireciona ao login quem não tem cookie (`/inicio`, `/fila`, `/lavador/*`, `/nova-os`, `/clientes`, `/configuracoes/*`), guardando o retorno em `next`, e aplica rate limit, `no-referrer` e `noindex` em `/acompanhar/*`.
+Redireciona ao login quem não tem cookie (`/inicio`, `/painel`, `/fila`, `/lavador/*`, `/nova-os`, `/clientes`, `/configuracoes/*`), guardando o retorno em `next`, e aplica rate limit, `no-referrer` e `noindex` em `/acompanhar/*`.
 
 ## `tests/`
 
@@ -133,6 +137,7 @@ Redireciona ao login quem não tem cookie (`/inicio`, `/fila`, `/lavador/*`, `/n
 | `e2e/foundation-*.spec.ts` | Login, equipe e suíte adversarial da Fase 0 |
 | `e2e/operacao-fila.spec.ts`, `operacao-whatsapp.spec.ts`, `operacao-publico.spec.ts` | Fila/Nova OS, botões `wa.me` e link público (projetos `desktop` e `mobile` 390×844) |
 | `e2e/operacao-fluxo.spec.ts` | Fluxo ponta a ponta (recepção → lavador no celular → SSE → pronto → avisar → entregar → link público) e OS cancelada somente leitura (`desktop` e `mobile`) |
+| `e2e/painel.spec.ts` | Painel: SSE sem recarregar, OS atrasada, recepção sem R$/telefone, redirecionamentos (`desktop` e `mobile`) |
 | `e2e/operacao-lavador.spec.ts` | App do lavador (projetos `android` 412×915 e `android-small` 360×640) |
 | `e2e/operacao-primeiro-acesso.spec.ts` | Assistente (`onboarding-desktop` e `onboarding-mobile`, servidor `:3101`) |
 | `e2e/global-setup.ts`, `e2e/login.ts` | Zera `lavaos_test`, migra (e copia as migrations para o schema `onboarding`), cria fixtures com segredos por execução; helpers de login |

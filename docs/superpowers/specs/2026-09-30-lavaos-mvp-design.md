@@ -373,7 +373,7 @@ Cada fase tem seu próprio plano, escrito quando chegar a sua vez, e uma branch 
 |---|---|---|
 | **0. Fundação** | Next.js, Docker Compose (Postgres), Drizzle e migrations, Better Auth (e-mail/senha e usuário/PIN), tenant e membros, perfis e permissões, layout base, scripts de qualidade, infraestrutura de testes | Base pronta |
 | **1. Operação** | Catálogo (serviços, adicionais, preços por porte, comissão por serviço), clientes e veículos, OS com um responsável, direcionamento e sugestão de lavador livre, fila em tempo real (NOTIFY + SSE), PWA do lavador (Android-first), link de acompanhamento, botões de WhatsApp, assistente de primeiro acesso | Controla o pátio; entrega sem validação financeira, cancelada somente leitura e entregue sem reabertura |
-| **2. Painel** | Painel operacional para dono, gerente e recepção (PC e celular) | Acompanhamento ao vivo |
+| **2. Painel** (concluída) | Painel operacional para dono, gerente e recepção (PC e celular); recebido do dia fica na Fase 4 | Acompanhamento ao vivo |
 | **3. App nativo do lavador** | App Expo (Android e iPhone) com API JSON sobre os mesmos serviços e push | Lavador com app de loja |
 | **4. Dinheiro** | Caixa (abrir, receber, fechar, reabrir, estornar), novas OSs exigem quitação e OSs do piloto preservam a regra anterior, reabertura de OS entregue, despesas e contas a pagar; painel ganha o recebido do dia | Substitui o controle de caixa |
 | **5. Comissões** | Geração na entrega a partir da regra do serviço, reabertura remove comissões pendentes e é bloqueada após acerto pago, acertos com despesa automática | Acerto da equipe |
