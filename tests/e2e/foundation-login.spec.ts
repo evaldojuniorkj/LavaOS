@@ -87,6 +87,6 @@ test('staff com dois lava jatos escolhe um antes de entrar', async ({ page }) =>
   await expect(page.getByRole('heading', { name: 'Escolha o lava jato' })).toBeVisible();
   await page.getByRole('button', { name: 'Lava Jato E2E B' }).click();
   await expect(page).toHaveURL('/fila');
-  await expect(page.getByText('(Gerente)')).toBeVisible(); // perfil do vínculo escolhido, vindo do servidor
+  await expect(page.getByText('(Gerente)').filter({ visible: true })).toBeVisible(); // perfil do vínculo escolhido, vindo do servidor
   await expect(page.getByRole('link', { name: 'Equipe' })).toBeVisible();
 });

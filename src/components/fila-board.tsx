@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { Alerta } from '@/components/catalogo-form';
+import { Placa } from '@/components/ui/placa';
+import { tintaDoStatus } from '@/components/ui/status-visual';
 import { Button } from '@/components/ui/button';
 import { Campo } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -86,7 +88,7 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold text-tinta">Fila</h1>
+        <h1 className="text-4xl font-extrabold tracking-tight text-tinta">Fila</h1>
         <p role="status" className="empty:hidden rounded-md bg-sinal/25 px-3 py-1 text-sm font-semibold text-tinta">
           {reconectando ? 'Reconectando…' : ''}
         </p>
@@ -96,7 +98,7 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
         {COLUNAS.map((c) => {
           const lista = fila.filter((o) => o.status === c.status);
           return (
-            <section key={c.status} aria-labelledby={`coluna-${c.status}`} className="min-w-0 space-y-3 rounded-lg bg-white/60 p-3">
+            <section key={c.status} aria-labelledby={`coluna-${c.status}`} className="min-w-0 space-y-3 rounded-3xl bg-white/50 p-3">
               <h2 id={`coluna-${c.status}`} className="flex items-center justify-between text-lg font-bold text-tinta">
                 {c.titulo}
                 <span className="rounded-full bg-tinta px-2.5 text-sm text-white">{lista.length}</span>
@@ -166,11 +168,11 @@ function Cartao({ os, agora, pode, meuId, pendente, onTransitar, onDialogo }: {
 
   const detalhes = [os.veiculo.modelo, os.veiculo.cor].filter(Boolean).join(', ');
   return (
-    <article id={`os-${os.id}`} tabIndex={-1} aria-label={`OS ${os.numero} ${os.veiculo.placa}`} className="space-y-3 rounded-lg border border-linha bg-white p-4 shadow-sm">
+    <article id={`os-${os.id}`} tabIndex={-1} aria-label={`OS ${os.numero} ${os.veiculo.placa}`} className={cn('space-y-3 rounded-2xl p-4', tintaDoStatus(os.status))}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-suave">OS {os.numero}</p>
-          <h3 className="mt-1 inline-block rounded border-2 border-tinta border-t-[6px] border-t-agua bg-white px-2 font-mono text-2xl font-bold tracking-widest text-tinta">{os.veiculo.placa}</h3>
+          <h3 className="mt-1"><Placa valor={os.veiculo.placa} className="[&>span]:py-1 [&>span]:text-2xl" /></h3>
           {detalhes && <p className="text-base text-tinta">{detalhes}</p>}
           {os.cliente && <p className="text-sm text-suave">{os.cliente.nome}</p>}
         </div>
@@ -180,7 +182,7 @@ function Cartao({ os, agora, pode, meuId, pendente, onTransitar, onDialogo }: {
       </div>
       <ul className="flex flex-wrap gap-1.5">
         {os.itens.map((i) => (
-          <li key={i.id} className="rounded bg-enxague px-2 py-0.5 text-sm font-medium text-tinta">
+          <li key={i.id} className="rounded-full bg-enxague px-2.5 py-0.5 text-sm font-medium text-tinta">
             {i.nome}
           </li>
         ))}
@@ -214,8 +216,9 @@ function Modal({ titulo, onFechar, children }: { titulo: string; onFechar: () =>
       ref={ref}
       aria-labelledby="dialogo-titulo"
       onClose={onFechar}
-      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-lg border border-linha bg-white p-5 text-tinta backdrop:bg-tinta/50"
+      className="folha m-auto mb-0 max-h-[92dvh] w-full max-w-lg rounded-t-3xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-tinta backdrop:bg-tinta/50 sm:mb-auto sm:rounded-3xl"
     >
+      <div aria-hidden className="mx-auto -mt-2 mb-3 h-1.5 w-10 rounded-full bg-linha sm:hidden" />
       <div className="mb-4 flex items-start justify-between gap-3">
         <h2 id="dialogo-titulo" className="text-lg font-bold">
           {titulo}

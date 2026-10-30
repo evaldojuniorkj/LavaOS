@@ -16,7 +16,7 @@ export function Sair() {
         await authClient.signOut().catch(() => {}); // sem sessão no servidor o resultado é o mesmo: voltar ao login
         router.replace('/login');
       }}
-      className="min-h-12 min-w-12 shrink-0 touch-manipulation rounded-md px-3 text-base font-semibold text-white/80 disabled:opacity-60"
+      className="min-h-12 shrink-0 touch-manipulation rounded-full bg-white/12 px-4 text-base font-semibold text-white transition active:scale-95 disabled:opacity-60"
     >
       {saindo ? 'Saindo…' : 'Sair'}
     </button>

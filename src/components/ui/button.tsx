@@ -10,7 +10,7 @@ export function Button({ variante = 'primario', className, ...props }: React.Com
   return (
     <button
       className={cn(
-        'inline-flex min-h-11 items-center justify-center rounded-md px-4 text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-base font-semibold transition duration-100 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100',
         VARIANTES[variante],
         className,
       )}

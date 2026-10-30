@@ -13,8 +13,8 @@ export default async function LavadorLayout({ children }: { children: React.Reac
   if (ctx.perfil !== 'lavador') redirect('/fila'); // só UX: as telas internas são as do balcão
   return (
     <div className="min-h-dvh bg-enxague text-base">
-      <header className="bg-tinta pt-[env(safe-area-inset-top)] text-white">
-        <div className="mx-auto flex max-w-xl items-center gap-2 px-4 py-1">
+      <header className="sticky top-0 z-20 bg-tinta pt-[env(safe-area-inset-top)] text-white">
+        <div className="mx-auto flex max-w-xl items-center gap-2 px-4 py-1.5">
           <p className="min-w-0 flex-1 truncate text-lg font-bold">{await nomeLavaJato(ctx)}</p>
           <InstalarApp />
           <Sair />

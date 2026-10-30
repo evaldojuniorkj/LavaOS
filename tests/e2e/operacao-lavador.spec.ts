@@ -97,7 +97,7 @@ test('lavador entra com usuário/PIN, cai em /lavador e a barra inferior só tem
   await expect(page.getByRole('heading', { name: 'Fila', level: 1 })).toBeVisible();
   await expect(page.getByText('Lava Jato E2E', { exact: true })).toBeVisible();
   await expect(page.getByRole('navigation')).toHaveCount(1); // sem menu de topo
-  await expect(page.getByRole('navigation', { name: 'App do lavador' }).getByRole('link')).toHaveText(['Fila', '+ Nova lavagem']);
+  await expect(page.getByRole('navigation', { name: 'App do lavador' }).getByRole('link')).toHaveText(['Fila', 'Nova lavagem']);
   await expect(page.getByRole('link', { name: 'Fila' })).toHaveAttribute('aria-current', 'page');
 });
 
@@ -127,7 +127,7 @@ test('cartão mostra o botão certo por estado, meus carros primeiro e OS de out
   expect(await botao.evaluate((e) => getComputedStyle(e).touchAction)).toBe('manipulation');
   await alvosGrandes(page);
   await semRolagemHorizontal(page);
-  await page.getByRole('link', { name: '+ Nova lavagem' }).click();
+  await page.getByRole('link', { name: 'Nova lavagem' }).click();
   await page.getByLabel('Placa', { exact: true }).fill(placaNova());
   await page.getByRole('button', { name: 'Buscar placa' }).click();
   await expect(page.getByText('Placa nova')).toBeVisible();
@@ -159,7 +159,7 @@ test('nenhum R$, telefone, token ou comissão no texto, no HTML, no RSC, nas act
   await expect.poll(() => page.evaluate(() => (window as { sse?: string[] }).sse!.length)).toBeGreaterThan(0);
   const sse = await page.evaluate(() => (window as { sse?: string[] }).sse!.join('\n'));
 
-  await page.getByRole('link', { name: '+ Nova lavagem' }).click();
+  await page.getByRole('link', { name: 'Nova lavagem' }).click();
   await page.getByLabel('Placa', { exact: true }).fill(PLACA_EXISTENTE);
   await page.getByRole('button', { name: 'Buscar placa' }).click();
   await expect(page.getByRole('region', { name: 'Veículo encontrado' })).toContainText('Cliente Existente E2E');
@@ -220,7 +220,7 @@ test('telas do balcão pedidas direto pelo lavador (HTML e RSC, sem seguir redir
 test('Nova lavagem: placa nova → porte → serviços → criar; fica aguardando com ele até Iniciar lavagem e Pronto', async ({ page }) => {
   await gravarVibracao(page);
   await entrar(page);
-  await page.getByRole('link', { name: '+ Nova lavagem' }).click();
+  await page.getByRole('link', { name: 'Nova lavagem' }).click();
   await expect(page).toHaveURL('/lavador/nova');
   await expect(page.getByRole('heading', { name: 'Nova lavagem', level: 1 })).toBeVisible();
   const placa = placaNova();
