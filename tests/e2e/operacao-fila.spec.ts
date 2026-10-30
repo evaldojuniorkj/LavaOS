@@ -3,6 +3,13 @@ import { entrarLavador, entrarStaff, pin, semRolagemHorizontal } from './login';
 
 // Catálogo, veículo existente e o segundo lavador vêm do global-setup.
 const PLACA_EXISTENTE = 'EXS1A23';
+// nada disso pode chegar ao lavador: valores, telefone do cliente da fixture, comissão e token público
+const PROIBIDOS_LAVADOR = ['R$', 'Centavos', 'telefone', '988887777', 'comissao', 'token'];
+
+async function semProibidos(page: Page) {
+  const texto = await page.locator('body').innerText();
+  for (const p of PROIBIDOS_LAVADOR) expect(texto, `texto visível: ${p}`).not.toContain(p);
+}
 
 async function novoContexto(browser: Browser) {
   const opcoes: Record<string, unknown> = { ...test.info().project.use };
@@ -172,6 +179,8 @@ test('ao direcionar, a lista de lavadores mostra livre/ocupado, destaca o sugeri
   await semRolagemHorizontal(page);
   await dialogo.getByRole('button', { name: /^Lavador E2E/ }).click(); // outro que não o sugerido, mesmo ocupado
   await expect(cartao(page, placa)).toContainText('Lavador E2E');
+  // o foco volta ao cartão da OS (o botão que abriu virou "Trocar responsável"), não fica no <body>
+  await expect.poll(() => page.evaluate(() => document.activeElement?.closest('article')?.getAttribute('aria-label') ?? '')).toContain(placa);
   await expect(coluna(page, 'Aguardando').getByRole('article').filter({ hasText: placa })).toBeVisible();
 
   await cartao(page, placa).getByRole('button', { name: 'Trocar responsável' }).click();
@@ -225,31 +234,64 @@ test('lavador não recebe nenhum R$ na fila nem na Nova OS', async ({ page, brow
   await expect(page).toHaveURL('/fila');
   await expect(page.getByRole('navigation', { name: 'Principal' }).getByRole('link')).toHaveText(['Fila', 'Nova OS']);
   await expect(cartao(page, placa)).toBeVisible();
-  await expect(page.locator('body')).not.toContainText('R$');
+  await semProibidos(page);
   await cartao(page, placa).getByRole('button', { name: 'Pegar' }).click();
   await expect(coluna(page, 'Em lavagem').getByRole('article').filter({ hasText: placa })).toContainText('Lavador E2E');
   await cartao(page, placa).getByRole('button', { name: 'Marcar pronto' }).click();
   await expect(coluna(page, 'Pronto').getByRole('article').filter({ hasText: placa })).toBeVisible();
-  await expect(page.locator('body')).not.toContainText('R$');
+  await semProibidos(page);
 
   await page.goto('/nova-os');
   await page.getByLabel('Placa', { exact: true }).fill(PLACA_EXISTENTE);
+  const resposta = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/nova-os');
   await page.getByRole('button', { name: 'Buscar placa' }).click();
+  const busca = await (await resposta).text(); // resposta da action buscarPorPlaca
+  expect(busca).toContain('Cliente Existente E2E'); // controle
+  for (const p of PROIBIDOS_LAVADOR) expect(busca, `busca por placa: ${p}`).not.toContain(p);
   await expect(page.getByRole('region', { name: 'Veículo encontrado' })).toContainText('Cliente Existente E2E');
   await expect(page.getByRole('checkbox', { name: /Lavagem completa/ })).toBeVisible();
-  await expect(page.locator('body')).not.toContainText('R$');
+  await semProibidos(page);
   await semRolagemHorizontal(page);
   for (const rota of ['/fila', '/nova-os']) {
     for (const r of [await page.request.get(rota), await page.request.get(rota, { headers: { RSC: '1' } })]) {
       const body = await r.text();
       expect(body, rota).toContain('Lavagem completa'); // controle: a resposta tem os dados da tela
-      for (const proibido of ['R$', 'Centavos', 'tokenPublico']) expect(body, `${rota} ${proibido}`).not.toContain(proibido);
+      for (const proibido of PROIBIDOS_LAVADOR) expect(body, `${rota} ${proibido}`).not.toContain(proibido);
     }
   }
   await rec.reload();
   await cartao(rec, placa).getByRole('button', { name: 'Entregar' }).click();
   await expect(cartao(rec, placa)).toHaveCount(0);
   await rec.context().close();
+});
+
+test('queda do stream mostra Reconectando… e se recupera sozinha', async ({ page }) => {
+  await entrar(page, 'recepcao@e2e.test');
+  await page.route('**/api/eventos', (r) => r.abort()); // conexão caída (erro de rede): o navegador tenta de novo
+  await page.reload();
+  await expect(page.getByRole('status')).toHaveText('Reconectando…');
+  await page.unroute('**/api/eventos');
+  await expect(page.getByText('Reconectando…')).toBeHidden({ timeout: 15_000 });
+  // recuperado: um evento novo chega sem recarregar
+  const outra = await novoContexto(page.context().browser()!);
+  await entrar(outra, 'recepcao@e2e.test');
+  const placa = await abrirOsNova(outra);
+  await expect(cartao(page, placa)).toBeVisible();
+  await cancelar(outra, placa);
+  await outra.context().close();
+});
+
+test('stream que fecha sem sessão leva ao login em vez de ficar reconectando', async ({ page, baseURL }) => {
+  await entrar(page, 'recepcao@e2e.test');
+  await page.route('**/api/eventos', (r) => r.abort());
+  await page.reload();
+  await expect(page.getByRole('status')).toHaveText('Reconectando…');
+  // sessão revogada no servidor (e o cookie some do contexto) enquanto o stream está caído
+  expect((await page.request.post('/api/auth/sign-out', { headers: { origin: baseURL! }, data: {} })).ok()).toBe(true);
+  expect(await (await page.request.get('/api/auth/get-session')).text()).toBe('null');
+  await page.unroute('**/api/eventos'); // a próxima tentativa recebe 403 e o EventSource desiste (CLOSED)
+  await expect(page).toHaveURL('/login?motivo=sessao', { timeout: 15_000 });
+  await expect(page.getByText('Sua sessão terminou ou o acesso foi removido. Entre novamente.')).toBeVisible();
 });
 
 test('fechar o navegador derruba a assinatura SSE no servidor', async ({ browser, request }) => {

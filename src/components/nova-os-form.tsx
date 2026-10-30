@@ -144,6 +144,7 @@ export function NovaOsForm({ portes, servicos, lavadores }: { portes: Porte[]; s
               <select
                 id="porteId"
                 value={porteId}
+                disabled={!!veiculoCriado} // veículo já cadastrado com este porte: preços mostrados seguem o dele
                 onChange={(e) => {
                   setPorteId(e.target.value);
                   setSelecionados([]);

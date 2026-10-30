@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 
 /**
  * SSE da fila: recarrega em `ready`, `resync` e a cada evento (rajadas viram uma recarga só).
- * O EventSource reconecta sozinho; enquanto isso `reconectando` fica true. `encerrado` = perdeu o acesso.
+ * Erro de rede: o EventSource reconecta sozinho e `reconectando` fica true. `encerrado` = perdeu o acesso.
  */
 export function useEventos(onRecarregar: () => void): { reconectando: boolean } {
   const router = useRouter();
@@ -16,26 +16,49 @@ export function useEventos(onRecarregar: () => void): { reconectando: boolean } 
   });
 
   useEffect(() => {
-    const es = new EventSource('/api/eventos');
+    let es: EventSource | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let nova: ReturnType<typeof setTimeout> | undefined;
+    let tentativas = 0;
+    let ativo = true;
     const recarregar = () => {
       clearTimeout(timer);
       timer = setTimeout(() => ref.current(), 150);
     };
-    const pronto = () => {
-      setReconectando(false);
-      recarregar();
-    };
-    es.addEventListener('ready', pronto);
-    es.addEventListener('message', recarregar); // eventos de OS e `{tipo: 'resync'}` chegam como `data:` sem nome
-    es.addEventListener('encerrado', () => {
-      es.close();
+    const sair = () => {
+      es?.close();
       router.replace('/login?motivo=sessao');
-    });
-    es.onerror = () => setReconectando(true);
+    };
+    const conectar = () => {
+      const atual = new EventSource('/api/eventos');
+      es = atual;
+      atual.addEventListener('ready', () => {
+        tentativas = 0;
+        setReconectando(false);
+        recarregar();
+      });
+      atual.addEventListener('message', recarregar); // eventos de OS e `{tipo: 'resync'}` chegam como `data:` sem nome
+      atual.addEventListener('encerrado', sair);
+      atual.onerror = () => {
+        setReconectando(true);
+        if (atual.readyState !== EventSource.CLOSED) return; // erro de rede: o navegador tenta de novo sozinho
+        // resposta não-200 (ex.: 403 sem sessão) fecha de vez: sem sessão vai ao login; senão (servidor reiniciando) reabre com backoff
+        fetch('/api/auth/get-session', { cache: 'no-store' })
+          .then((r) => r.json())
+          .then((s) => !s, () => false)
+          .then((semSessao) => {
+            if (!ativo) return;
+            if (semSessao) return sair();
+            nova = setTimeout(conectar, Math.min(30_000, 1_000 * 2 ** tentativas++));
+          });
+      };
+    };
+    conectar();
     return () => {
+      ativo = false;
       clearTimeout(timer);
-      es.close();
+      clearTimeout(nova);
+      es?.close();
     };
   }, [router]);
 

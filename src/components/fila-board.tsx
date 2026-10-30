@@ -44,28 +44,42 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
     return () => clearInterval(t);
   }, []);
 
+  const seq = useRef(0);
+  const focar = useRef<{ el: Element | null; osId: string; aposRecarga: boolean } | null>(null);
   const recarregar = useCallback(async () => {
+    const n = ++seq.current; // recargas podem se sobrepor (SSE e ação): só a mais recente vale
     const r = await listarFilaAction();
-    if (r.ok) setFila(r.data);
+    if (!r.ok || n !== seq.current) return;
+    if (focar.current) focar.current.aposRecarga = false;
+    setFila(r.data);
   }, []);
+
+  // diálogo fechado por uma ação: o foco volta a quem o abriu ou, se o botão sumiu na recarga, ao cartão (Esc/✕ o navegador já devolve)
+  const abridor = useRef<{ el: Element | null; osId: string } | null>(null);
+  const abrirDialogo = (tipo: Dialogo['tipo'], osId: string) => {
+    abridor.current = { el: document.activeElement, osId };
+    setDialogo({ tipo, osId });
+  };
+  useEffect(() => {
+    const alvo = focar.current;
+    if (dialogo || !alvo || alvo.aposRecarga) return; // espera a fila nova para achar o botão/cartão certo
+    focar.current = null;
+    ((alvo.el?.isConnected ? alvo.el : document.getElementById(`os-${alvo.osId}`)) as HTMLElement | null)?.focus();
+  }, [dialogo, fila]);
   const { reconectando } = useEventos(recarregar);
 
   /** Executa a action; conflito e afins mostram a mensagem e recarregam. Erros de campo voltam para o diálogo. */
   const executar = (acao: () => Promise<ActionResult<unknown>>, onErroCampo?: (e: Record<string, string[]>) => void, manterAberto = false) =>
     iniciar(async () => {
       const r = await acao();
-      if (r.ok) {
-        setErro('');
-        if (!manterAberto) setDialogo(null);
-      } else if (r.code === 'VALIDACAO' && r.fieldErrors && onErroCampo) {
-        onErroCampo(r.fieldErrors);
-        return;
-      } else {
-        setErro(erroDe(r));
+      if (!r.ok && r.code === 'VALIDACAO' && r.fieldErrors && onErroCampo) return onErroCampo(r.fieldErrors);
+      const recarga = r.ok || (ERROS_RECARREGAR_FILA as readonly string[]).includes(r.code);
+      setErro(r.ok ? '' : erroDe(r));
+      if (!r.ok || !manterAberto) {
+        focar.current = abridor.current && { ...abridor.current, aposRecarga: recarga };
         setDialogo(null);
-        if (!(ERROS_RECARREGAR_FILA as readonly string[]).includes(r.code)) return;
       }
-      await recarregar();
+      if (recarga) await recarregar();
     });
 
   const transitar = (os: OsView, para: StatusOs, extra: { responsavelId?: string; motivo?: string } = {}, onErroCampo?: (e: Record<string, string[]>) => void) =>
@@ -93,7 +107,7 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
               </h2>
               {lista.length === 0 && <p className="text-sm text-suave">Nenhuma OS.</p>}
               {lista.map((os) => (
-                <Cartao key={os.id} os={os} agora={agora} pode={pode} meuId={meuId} pendente={pendente} onTransitar={transitar} onDialogo={(tipo) => setDialogo({ tipo, osId: os.id })} />
+                <Cartao key={os.id} os={os} agora={agora} pode={pode} meuId={meuId} pendente={pendente} onTransitar={transitar} onDialogo={(tipo) => abrirDialogo(tipo, os.id)} />
               ))}
             </section>
           );
@@ -156,7 +170,7 @@ function Cartao({ os, agora, pode, meuId, pendente, onTransitar, onDialogo }: {
 
   const detalhes = [os.veiculo.modelo, os.veiculo.cor].filter(Boolean).join(', ');
   return (
-    <article aria-label={`OS ${os.numero} ${os.veiculo.placa}`} className="space-y-3 rounded-lg border border-linha bg-white p-4 shadow-sm">
+    <article id={`os-${os.id}`} tabIndex={-1} aria-label={`OS ${os.numero} ${os.veiculo.placa}`} className="space-y-3 rounded-lg border border-linha bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-suave">OS {os.numero}</p>
