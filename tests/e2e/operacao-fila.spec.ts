@@ -243,9 +243,21 @@ test('lavador não recebe nenhum R$ na fila nem na Nova OS', async ({ page, brow
 
   await page.goto('/nova-os');
   await page.getByLabel('Placa', { exact: true }).fill(PLACA_EXISTENTE);
-  const resposta = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/nova-os');
+  // o corpo é lido dentro do route, antes de a página poder navegar (ler depois da resposta era instável)
+  let busca = '';
+  const casa = (u: URL) => u.pathname === '/nova-os';
+  await page.route(
+    casa,
+    async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      const r = await route.fetch();
+      busca = await r.text(); // resposta da action buscarPorPlaca
+      await route.fulfill({ response: r });
+    },
+  );
   await page.getByRole('button', { name: 'Buscar placa' }).click();
-  const busca = await (await resposta).text(); // resposta da action buscarPorPlaca
+  await expect(page.getByRole('region', { name: 'Veículo encontrado' })).toBeVisible();
+  await page.unroute(casa);
   expect(busca).toContain('Cliente Existente E2E'); // controle
   for (const p of PROIBIDOS_LAVADOR) expect(busca, `busca por placa: ${p}`).not.toContain(p);
   await expect(page.getByRole('region', { name: 'Veículo encontrado' })).toContainText('Cliente Existente E2E');

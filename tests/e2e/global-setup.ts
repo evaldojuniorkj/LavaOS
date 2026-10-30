@@ -58,6 +58,8 @@ export default async function globalSetup() {
       rows: [cli],
     } = await pool.query(`insert into clientes (tenant_id, nome, telefone) values ($1, 'Cliente Existente E2E', '+5511988887777') returning id`, [t.id]);
     await pool.query(`insert into veiculos (tenant_id, placa, modelo, porte_id, cliente_id) values ($1, 'EXS1A23', 'Fusca E2E', $2, $3)`, [t.id, grande, cli.id]);
+    // veículo exclusivo do spec público (cada spec usa as suas placas: nenhum interfere no outro)
+    await pool.query(`insert into veiculos (tenant_id, placa, modelo, porte_id) values ($1, 'EXP1A23', 'Uno E2E', $2)`, [t.id, grande]);
     const lav2 = randomUUID();
     await pool.query('insert into "user" (id, name, email) values ($1, $2, $3)', [lav2, 'Lavador Dois E2E', `${lav2}@lavador.invalid`]);
     await pool.query(`insert into membros (tenant_id, user_id, perfil, nome_exibicao) values ($1, $2, 'lavador', 'Lavador Dois E2E')`, [t.id, lav2]);

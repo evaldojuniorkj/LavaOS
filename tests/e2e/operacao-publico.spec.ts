@@ -30,7 +30,7 @@ async function inserirOs(status: 'entregue' | 'cancelada', ha: number, totalCent
   const quando = new Date(Date.now() - ha);
   const os = await um<{ id: string }>(
     `insert into ordens_servico (tenant_id, numero, veiculo_id, aberta_por, status, token_publico, entregue_em, cancelada_em, motivo_cancelamento, total_centavos)
-     values ($1, $2, (select id from veiculos where tenant_id = $1 and placa = 'EXS1A23'), (select id from membros where tenant_id = $1 and nome_exibicao = 'Recepcao E2E'), $3, $4, $5, $6, $7, $8) returning id`,
+     values ($1, $2, (select id from veiculos where tenant_id = $1 and placa = 'EXP1A23'), (select id from membros where tenant_id = $1 and nome_exibicao = 'Recepcao E2E'), $3, $4, $5, $6, $7, $8) returning id`,
     [t.id, ultimo, status, token, status === 'entregue' ? quando : null, status === 'cancelada' ? quando : null, status === 'cancelada' ? 'teste' : null, totalCentavos],
   );
   return { token, tenantId: t.id, osId: os.id };
@@ -105,7 +105,7 @@ test('token inválido, truncado, inexistente ou expirado: a mesma página genér
   const corpos = await Promise.all(tokens.map((t) => corpoGenerico(pub, t)));
   expect(new Set(corpos).size).toBe(1);
   expect(corpos[0]).toContain('Link indisponível ou expirado');
-  expect(corpos[0]).not.toContain('EXS1A23');
+  expect(corpos[0]).not.toContain('EXP1A23');
 
   for (const token of [valida.token, tokens[0]]) {
     const r = await pub.request.get(`/acompanhar/${token}`);
@@ -118,7 +118,7 @@ test('token inválido, truncado, inexistente ou expirado: a mesma página genér
   }
   await pub.goto(`/acompanhar/${valida.token}`); // entregue há 6 dias: ainda visível
   await expect(pub.getByRole('heading', { level: 1 })).toHaveText('Entregue');
-  await expect(pub.getByText('EXS1A23')).toBeVisible();
+  await expect(pub.getByText('EXP1A23')).toBeVisible();
   await pub.goto(`/acompanhar/${cancelada8.token}`);
   await expect(pub.getByRole('heading', { level: 1 })).toHaveText('Link indisponível ou expirado');
   await pub.context().close();
