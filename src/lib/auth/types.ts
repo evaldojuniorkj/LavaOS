@@ -3,12 +3,12 @@ import type { Perfil } from '@/lib/db/schema';
 export type { Perfil };
 export { PERFIS } from '@/lib/db/schema';
 
-/** Exatamente as permissões da spec §3; `painel:ver` entra na fase do painel. */
+/** Exatamente as permissões da spec §3. */
 export const PERMISSOES = [
   'fila:ver', 'os:abrir', 'os:assumir', 'os:atribuir', 'os:avancar', 'os:corrigir', 'os:entregar', 'os:cancelar',
   'os:reabrir', 'os:ajustar_valor', 'clientes:gerenciar', 'agenda:gerenciar', 'caixa:operar', 'caixa:reabrir',
   'caixa:estornar', 'despesas:gerenciar', 'relatorios:ver', 'comissoes:gerenciar', 'fidelidade:consultar',
-  'fidelidade:resgatar', 'fidelidade:configurar', 'catalogo:gerenciar', 'equipe:gerenciar', 'equipe:gerenciar_lideranca',
+  'fidelidade:resgatar', 'fidelidade:configurar', 'catalogo:gerenciar', 'equipe:gerenciar', 'equipe:gerenciar_lideranca', 'painel:ver',
 ] as const;
 export type Permissao = (typeof PERMISSOES)[number];
 

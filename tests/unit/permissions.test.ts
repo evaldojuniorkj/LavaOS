@@ -29,6 +29,7 @@ const MATRIZ: [Permissao, boolean, boolean, boolean, boolean][] = [
   ['catalogo:gerenciar', true, true, false, false],
   ['equipe:gerenciar', true, true, false, false],
   ['equipe:gerenciar_lideranca', true, false, false, false],
+  ['painel:ver', true, true, true, false],
 ];
 const PERFIS_ORDEM: Perfil[] = ['dono', 'gerente', 'recepcao', 'lavador'];
 const celulas = MATRIZ.flatMap(([p, ...vals]) => PERFIS_ORDEM.map((perfil, i) => [perfil, p, vals[i]] as const));
@@ -36,10 +37,10 @@ const celulas = MATRIZ.flatMap(([p, ...vals]) => PERFIS_ORDEM.map((perfil, i) =>
 const ctx = (perfil: Perfil) => ({ perfil }) as TenantContext;
 
 describe('matriz de permissões', () => {
-  it('a tabela cobre exatamente as permissões da implementação (24)', () => {
+  it('a tabela cobre exatamente as permissões da implementação (25)', () => {
     expect(new Set(MATRIZ.map(([p]) => p))).toEqual(new Set(PERMISSOES));
     expect(MATRIZ).toHaveLength(PERMISSOES.length);
-    expect(PERMISSOES).toHaveLength(24);
+    expect(PERMISSOES).toHaveLength(25);
   });
 
   it.each(celulas)('%s x %s = %s', (perfil, permissao, esperado) => {
@@ -47,7 +48,7 @@ describe('matriz de permissões', () => {
   });
 
   it('nega por padrão entrada desconhecida', () => {
-    expect(can('dono', 'painel:ver' as Permissao)).toBe(false);
+    expect(can('dono', 'painel:inexistente' as Permissao)).toBe(false);
     expect(can('admin' as Perfil, 'fila:ver')).toBe(false);
     expect(can('dono', 'toString' as Permissao)).toBe(false);
   });
@@ -62,6 +63,11 @@ describe('assertPermission', () => {
   it('recusa perfil sem a permissão com "acesso negado"', () => {
     expect(() => assertPermission(ctx('gerente'), 'equipe:gerenciar_lideranca')).toThrow('acesso negado');
     expect(() => assertPermission(ctx('lavador'), 'equipe:gerenciar')).toThrow('acesso negado');
+  });
+
+  it('painel:ver: recepção liberada, lavador recusado', () => {
+    expect(() => assertPermission(ctx('recepcao'), 'painel:ver')).not.toThrow();
+    expect(() => assertPermission(ctx('lavador'), 'painel:ver')).toThrow('acesso negado');
   });
 
   it('recusa operação não implantada mesmo para o dono', () => {

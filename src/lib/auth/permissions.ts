@@ -30,6 +30,7 @@ const MATRIZ: Record<Permissao, readonly Perfil[]> = {
   'catalogo:gerenciar': GESTAO,
   'equipe:gerenciar': GESTAO,
   'equipe:gerenciar_lideranca': ['dono'],
+  'painel:ver': FRENTE,
 };
 
 /** Operações com ação de domínio existente; fases posteriores acrescentam aqui. */
@@ -47,6 +48,7 @@ const IMPLANTADAS: ReadonlySet<Permissao> = new Set<Permissao>([
   'os:ajustar_valor',
   'clientes:gerenciar',
   'catalogo:gerenciar',
+  'painel:ver',
 ]);
 
 export function can(perfil: Perfil, permissao: Permissao): boolean {
