@@ -219,4 +219,21 @@ describe('SSE público', () => {
       expect((await abrir(os.tokenPublico, ip, ac.signal)).status).toBe(200);
       for (const a of [...acs, ac]) a.abort();
     }));
+
+  it('falha ao montar o stream libera a vaga reservada', () =>
+    run(async ({ os }) => {
+      const ip = '10.8.0.3';
+      const espiao = vi.spyOn(hub, 'assinar').mockImplementationOnce(() => {
+        throw new Error('assinar falhou');
+      });
+      try {
+        await expect(abrir(os.tokenPublico, ip)).rejects.toThrow('assinar falhou');
+      } finally {
+        espiao.mockRestore();
+      }
+      const acs = Array.from({ length: 5 }, () => new AbortController());
+      for (const ac of acs) expect((await abrir(os.tokenPublico, ip, ac.signal)).status).toBe(200); // as 5 vagas continuam livres
+      expect((await abrir(os.tokenPublico, ip)).status).toBe(429);
+      for (const ac of acs) ac.abort();
+    }));
 });

@@ -23,46 +23,52 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   if (!alvo) return indisponivel();
   const liberar = reservarVaga(`sse:${ip}`, ABERTOS_POR_IP);
   if (!liberar) return respostaLimitada(JANELA_MS);
-  iniciarListener();
-  const enc = new TextEncoder();
-  let limpar = () => {};
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      let aberto = true;
-      const enviar = (s: string) => {
-        if (aberto) controller.enqueue(enc.encode(s));
-      };
-      enviar('event: ready\ndata: {}\n\n');
-      const cancelar = hub.assinar(alvo, (m) => enviar(`data: ${JSON.stringify({ tipo: m.tipo })}\n\n`));
-      // heartbeat mantém proxies sem cortar a conexão e revalida o token: passou dos 7 dias, o stream fecha
-      const heartbeat = setInterval(async () => {
-        try {
-          const ainda = await localizarOsPublica(token);
-          if (ainda?.osId !== alvo.osId) return fechar();
-          enviar(': hb\n\n');
-        } catch {
-          fechar(); // falha passageira (ex.: banco): o EventSource reconecta
-        }
-      }, 25_000);
-      limpar = () => {
-        aberto = false;
-        liberar();
-        cancelar();
-        clearInterval(heartbeat);
-      };
-      const fechar = () => {
-        if (!aberto) return;
-        limpar();
-        try {
-          controller.close();
-        } catch {} // stream já cancelado/com erro
-      };
-      if (request.signal.aborted) fechar();
-      else request.signal.addEventListener('abort', fechar, { once: true });
-    },
-    cancel: () => limpar(),
-  });
-  return new Response(stream, {
-    headers: { ...HEADERS, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no' },
-  });
+  // qualquer falha na montagem (listener, assinatura, primeiro envio) devolve a vaga: senão ela vazaria para sempre
+  try {
+    iniciarListener();
+    const enc = new TextEncoder();
+    let limpar = () => {};
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        let aberto = true;
+        const enviar = (s: string) => {
+          if (aberto) controller.enqueue(enc.encode(s));
+        };
+        enviar('event: ready\ndata: {}\n\n');
+        const cancelar = hub.assinar(alvo, (m) => enviar(`data: ${JSON.stringify({ tipo: m.tipo })}\n\n`));
+        // heartbeat mantém proxies sem cortar a conexão e revalida o token: passou dos 7 dias, o stream fecha
+        const heartbeat = setInterval(async () => {
+          try {
+            const ainda = await localizarOsPublica(token);
+            if (ainda?.osId !== alvo.osId) return fechar();
+            enviar(': hb\n\n');
+          } catch {
+            fechar(); // falha passageira (ex.: banco): o EventSource reconecta
+          }
+        }, 25_000);
+        limpar = () => {
+          aberto = false;
+          liberar();
+          cancelar();
+          clearInterval(heartbeat);
+        };
+        const fechar = () => {
+          if (!aberto) return;
+          limpar();
+          try {
+            controller.close();
+          } catch {} // stream já cancelado/com erro
+        };
+        if (request.signal.aborted) fechar();
+        else request.signal.addEventListener('abort', fechar, { once: true });
+      },
+      cancel: () => limpar(),
+    });
+    return new Response(stream, {
+      headers: { ...HEADERS, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no' },
+    });
+  } catch (err) {
+    liberar();
+    throw err;
+  }
 }
