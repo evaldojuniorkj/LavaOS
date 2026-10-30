@@ -186,7 +186,7 @@ describe('clientes.actions', () => {
       expect(v.clienteId).toBe(cs[0].id);
     }));
 
-  it('buscarPorPlacaAction: lavador vê só o nome do cliente; recepção vê tudo; outro tenant e inválida dão null', () =>
+  it('buscarPorPlacaAction: lavador vê só o nome do cliente (sem clienteId); recepção vê tudo; outro tenant e inválida dão null', () =>
     run(async (db, f) => {
       const porte = await porteDe(db, f.a.tenantId);
       const porteB = await porteDe(db, f.b.tenantId);
@@ -197,8 +197,11 @@ describe('clientes.actions', () => {
       await comoLavador(f);
       const l = await buscarPorPlacaAction({ placa: 'aaa-1111' });
       if (!l.ok || !l.data) throw new Error('falhou');
-      expect(Object.keys(l.data.cliente!).sort()).toEqual(['id', 'nome']);
-      expect(l.data.cliente).toEqual({ id: cli.id, nome: 'Ana' });
+      expect(l.data.cliente).toEqual({ nome: 'Ana' });
+      // varredura recursiva: nenhuma chave de cliente (id, telefone, observações) em nível nenhum da resposta
+      const chaves = (v: unknown): string[] => (v && typeof v === 'object' ? Object.entries(v).flatMap(([k, x]) => [k, ...chaves(x)]) : []);
+      expect(chaves(l).filter((k) => /cliente|telefone|observacoes/i.test(k))).toEqual(['cliente']);
+      expect(JSON.stringify(l)).not.toContain(cli.id);
       expect(JSON.stringify(l)).not.toMatch(/telefone|observacoes|vip|9888/);
       expect(await buscarPorPlacaAction({ placa: 'BBB2222' })).toEqual({ ok: true, data: null });
       expect(await buscarPorPlacaAction({ placa: 'xx' })).toEqual({ ok: true, data: null });
@@ -206,7 +209,7 @@ describe('clientes.actions', () => {
 
       await como(f, f.a.membros.recepcao.userId);
       const r = await buscarPorPlacaAction({ placa: 'AAA1111' });
-      expect(r).toMatchObject({ ok: true, data: { cliente: { nome: 'Ana', telefone: '+5511988887777', observacoes: 'vip' } } });
+      expect(r).toMatchObject({ ok: true, data: { veiculo: { clienteId: cli.id }, cliente: { id: cli.id, nome: 'Ana', telefone: '+5511988887777', observacoes: 'vip' } } });
       expect(await buscarPorPlacaAction({ placa: 'BBB2222' })).toEqual({ ok: true, data: null });
     }));
 

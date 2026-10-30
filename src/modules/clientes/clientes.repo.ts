@@ -22,8 +22,8 @@ export function listarVeiculos(ctx: TenantContext, db: Database = getDatabase())
 }
 
 /**
- * Sem valores em R$ de propósito. O formato do cliente depende do perfil do contexto: quem não tem
- * clientes:gerenciar (lavador) recebe só id e nome, nunca telefone nem observações.
+ * Sem valores em R$ de propósito. O formato depende do perfil do contexto: quem não tem
+ * clientes:gerenciar (lavador) recebe só o nome do cliente, sem ids de cliente, telefone nem observações.
  */
 export async function buscarVeiculoPorPlaca(ctx: TenantContext, placa: string, db: Database = getDatabase()) {
   const p = normalizarPlaca(placa);
@@ -33,7 +33,7 @@ export async function buscarVeiculoPorPlaca(ctx: TenantContext, placa: string, d
   const completo = can(ctx.perfil, 'clientes:gerenciar');
   const [cliente] = veiculo.clienteId
     ? await db
-        .select(completo ? camposCliente : { id: clientes.id, nome: clientes.nome })
+        .select(completo ? camposCliente : { nome: clientes.nome })
         .from(clientes)
         .where(and(eq(clientes.tenantId, ctx.tenantId), eq(clientes.id, veiculo.clienteId)))
     : [];
@@ -43,5 +43,10 @@ export async function buscarVeiculoPorPlaca(ctx: TenantContext, placa: string, d
     .where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.veiculoId, veiculo.id)))
     .orderBy(desc(ordensServico.entradaEm))
     .limit(5);
-  return { veiculo, cliente: (cliente ?? null) as Cliente | Pick<Cliente, 'id' | 'nome'> | null, ultimasOs };
+  return {
+    // lista explícita: campo novo em camposVeiculo não vaza para o lavador por engano
+    veiculo: completo ? veiculo : { id: veiculo.id, placa: veiculo.placa, modelo: veiculo.modelo, cor: veiculo.cor, porteId: veiculo.porteId },
+    cliente: (cliente ?? null) as Cliente | Pick<Cliente, 'nome'> | null,
+    ultimasOs,
+  };
 }

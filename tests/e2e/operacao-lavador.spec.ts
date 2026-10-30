@@ -10,10 +10,10 @@ const pool = new pg.Pool({ connectionString: testUrls.owner, max: 1 });
 const um = async <T = Record<string, string>>(sql: string, params: unknown[] = []) => (await pool.query(sql, params)).rows[0] as T;
 
 const PLACA_EXISTENTE = 'EXS1A23';
-// nada disso pode chegar ao lavador: valores, telefone do cliente da fixture, comissão e token público
-const PROIBIDOS = ['R$', 'Centavos', 'telefone', '988887777', 'comissao', 'token'];
-// campos só da visão de gestão da OS (a busca por placa devolve `clienteId` do veículo, então valem só nas telas do balcão)
-const CAMPOS_GESTAO = ['lavaJato', 'clienteId', 'urlAcompanhar'];
+// nada disso pode chegar ao lavador: valores, telefone e id do cliente da fixture, comissão e token público
+const PROIBIDOS = ['R$', 'Centavos', 'telefone', '988887777', 'comissao', 'token', 'clienteId'];
+// campos só da visão de gestão da OS: valem só nas telas do balcão
+const CAMPOS_GESTAO = ['lavaJato', 'urlAcompanhar'];
 
 // placas só deste spec; ao fim toda OS criada aqui é encerrada (lavadores voltam a ficar livres para os outros specs)
 const criadas: string[] = [];

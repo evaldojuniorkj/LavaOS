@@ -108,7 +108,12 @@ export default async function globalSetup() {
     await pool.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema}; GRANT USAGE ON SCHEMA ${schema} TO lavaos_app; SET search_path TO ${schema}`);
     const { entries } = JSON.parse(readFileSync('drizzle/meta/_journal.json', 'utf8')) as { entries: { tag: string }[] };
     for (const { tag } of entries) {
-      for (const stmt of readFileSync(`drizzle/${tag}.sql`, 'utf8').split('--> statement-breakpoint')) await pool.query(stmt.replaceAll('"public".', `"${schema}".`));
+      for (const stmt of readFileSync(`drizzle/${tag}.sql`, 'utf8').split('--> statement-breakpoint')) {
+        const sql = stmt.replaceAll('"public".', `"${schema}".`);
+        // outra grafia (public.x sem aspas, "public" sem ponto) escaparia da troca e tocaria as fixtures do schema public
+        if (/\bpublic\b/i.test(sql)) throw new Error(`global-setup: drizzle/${tag}.sql ainda cita o schema public após a troca para ${schema}: ajuste a reescrita`);
+        await pool.query(sql);
+      }
     }
     await pool.query('RESET search_path');
     Object.assign(process.env, { E2E_SENHA: senha, E2E_PIN: pin });
