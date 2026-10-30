@@ -1,7 +1,15 @@
 import { cn } from '@/lib/utils';
 
 /** Placa Mercosul: faixa azul com "BRASIL" (só decoração, fora do texto lido) e letras grandes — é o que o lavador procura no pátio. */
-export function Placa({ valor, className }: { valor: string; className?: string }) {
+export function Placa({ valor, className }: { valor: string | null; className?: string }) {
+  if (!valor) {
+    // sem placa: só o texto, sem a faixa azul
+    return (
+      <span className={cn('inline-block overflow-hidden rounded-lg border-2 border-dashed border-tinta bg-white text-center font-mono font-extrabold leading-none tracking-widest text-tinta', className)}>
+        <span className="block px-3 py-1.5 text-xl">SEM PLACA</span>
+      </span>
+    );
+  }
   return (
     <span
       className={cn(

@@ -87,6 +87,16 @@ describe('abrirOsAction', () => {
       ]);
     }));
 
+  it('abre OS para veículo sem placa', () =>
+    run(async (db, f) => {
+      const s = await semear(db, f.a.tenantId);
+      const [moto] = await db.insert(veiculos).values({ tenantId: f.a.tenantId, placa: null, porteId: s.medio.id, modelo: 'CG 160' }).returning();
+      await como(f, f.a.membros.recepcao.userId);
+      const r = await abrirOsAction({ veiculoId: moto.id, servicoIds: [s.lavagem.id] });
+      if (!r.ok) throw new Error(JSON.stringify(r));
+      expect(r.data.veiculo).toMatchObject({ placa: null, modelo: 'CG 160' });
+    }));
+
   it('ignora valor enviado pelo cliente (payload com valorCentavos é rejeitado pelo schema strict)', () =>
     run(async (db, f) => {
       const s = await semear(db, f.a.tenantId);

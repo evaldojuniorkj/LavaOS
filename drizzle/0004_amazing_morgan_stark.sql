@@ -1,0 +1,1 @@
+ALTER TABLE "veiculos" ALTER COLUMN "placa" DROP NOT NULL;

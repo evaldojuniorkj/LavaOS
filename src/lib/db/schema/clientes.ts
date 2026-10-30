@@ -23,7 +23,7 @@ export const veiculos = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     tenantId: uuid('tenant_id').notNull().references(() => lavaJatos.id, { onDelete: 'cascade' }),
-    placa: text('placa').notNull(), // normalizada pela aplicação
+    placa: text('placa'), // normalizada pela aplicação; null = sem placa (NULLs não colidem na unique)
     modelo: text('modelo'),
     cor: text('cor'),
     porteId: uuid('porte_id').notNull(),

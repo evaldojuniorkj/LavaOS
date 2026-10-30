@@ -11,7 +11,7 @@ export type Painel = {
   atualizadoEm: Date;
   contagem: { aguardando: number; emLavagem: number; pronto: number; entreguesHoje: number };
   tempoMedioLavagemMin: number | null;
-  atrasadas: { id: string; numero: number; placa: string; status: 'aguardando' | 'em_lavagem'; minutos: number }[];
+  atrasadas: { id: string; numero: number; placa: string | null; status: 'aguardando' | 'em_lavagem'; minutos: number }[];
   lavadores: { membroId: string; nome: string; livre: boolean; osEmLavagem: number[] }[];
 };
 

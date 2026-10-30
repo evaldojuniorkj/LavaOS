@@ -15,7 +15,7 @@ export type OsCompleta = {
   urlAcompanhar: string; // montada no servidor com a URL pública; só a visão de gestão a recebe
   lavaJato: string;
   clienteId: string | null;
-  veiculo: { placa: string; modelo: string | null; cor: string | null };
+  veiculo: { placa: string | null; modelo: string | null; cor: string | null };
   cliente: { nome: string; telefone: string | null } | null;
   itens: { id: string; nome: string; valorCentavos: number }[];
   responsavel: { id: string; nomeExibicao: string } | null;

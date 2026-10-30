@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizarPlaca, normalizarTelefone } from '@/modules/clientes/clientes.rules';
+import { normalizarPlaca, normalizarTelefone, rotuloVeiculo } from '@/modules/clientes/clientes.rules';
 
 describe('clientes.rules', () => {
   it('normalizarPlaca', () => {
@@ -11,6 +11,13 @@ describe('clientes.rules', () => {
     expect(normalizarPlaca('ﬃ1234')).toBeNull(); // 'ﬃ'.toUpperCase() === 'FFI'
     expect(normalizarPlaca('ß1A2345')).toBeNull();
     expect(normalizarPlaca('ABC１２３４')).toBeNull(); // dígitos de largura total
+  });
+  it('rotuloVeiculo', () => {
+    expect(rotuloVeiculo({ placa: 'ABC1D23', modelo: 'Gol', cor: 'Prata' })).toBe('ABC1D23');
+    expect(rotuloVeiculo({ placa: null, modelo: 'CG 160', cor: 'Preta' })).toBe('Sem placa — CG 160 Preta');
+    expect(rotuloVeiculo({ placa: null, modelo: 'CG 160', cor: null })).toBe('Sem placa — CG 160');
+    expect(rotuloVeiculo({ placa: null, modelo: null, cor: 'Preta' })).toBe('Sem placa');
+    expect(rotuloVeiculo({ placa: null, modelo: null, cor: null })).toBe('Sem placa');
   });
   it('normalizarTelefone', () => {
     expect(normalizarTelefone('(11) 98888-7777')).toBe('+5511988887777');

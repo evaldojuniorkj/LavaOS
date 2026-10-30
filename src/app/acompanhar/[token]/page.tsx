@@ -37,7 +37,8 @@ function Indisponivel() {
 }
 
 /** Placa no desenho Mercosul: o elemento que o cliente reconhece de longe. */
-function Placa({ placa }: { placa: string }) {
+function Placa({ placa }: { placa: string | null }) {
+  if (!placa) return <span className="rounded-md border-2 border-dashed border-tinta bg-white px-3 py-1 font-mono text-xl font-bold tracking-widest text-tinta">SEM PLACA</span>;
   return (
     <span className="inline-flex flex-col overflow-hidden rounded-md border-2 border-tinta bg-white text-center shadow-sm">
       <span aria-hidden className="bg-agua-escura px-3 text-[0.625rem] font-bold leading-4 tracking-widest text-white">

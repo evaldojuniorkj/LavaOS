@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { Alerta } from '@/components/catalogo-form';
 import { useEventos } from '@/components/use-eventos';
 import { Placa } from '@/components/ui/placa';
+import { rotuloVeiculo } from '@/modules/clientes/clientes.rules';
 import { tintaDoStatus } from '@/components/ui/status-visual';
 import { listarFilaAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
 import { ERROS_RECARREGAR_FILA, type StatusOs } from '@/modules/ordens/ordens.rules';
@@ -94,7 +95,7 @@ function CartaoOs({ os, meuId, agora, pendente, onTransitar }: { os: OsView; meu
   const detalhes = [os.veiculo.modelo, os.veiculo.cor].filter(Boolean).join(', ');
   const quem = !os.responsavel ? 'Sem responsável' : meu ? `Com você (${os.responsavel.nomeExibicao})` : `${STATUS[os.status]} com ${os.responsavel.nomeExibicao}`;
   return (
-    <article aria-label={`OS ${os.numero} ${os.veiculo.placa}`} className={cn('space-y-3 rounded-3xl p-4 transition-shadow', tintaDoStatus(os.status), meu && 'ring-2 ring-agua')}>
+    <article aria-label={`OS ${os.numero} ${rotuloVeiculo(os.veiculo)}`} className={cn('space-y-3 rounded-3xl p-4 transition-shadow', tintaDoStatus(os.status), meu && 'ring-2 ring-agua')}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2>
           <Placa valor={os.veiculo.placa} />

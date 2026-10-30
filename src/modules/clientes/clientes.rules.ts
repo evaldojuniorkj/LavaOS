@@ -5,6 +5,12 @@ export function normalizarPlaca(raw: string): string | null {
   return /^[A-Za-z]{3}\d[A-Za-z\d]\d{2}$/.test(p) ? p.toUpperCase() : null;
 }
 
+/** Texto do veículo onde não cabe a placa em destaque (aria-label, mensagens): nunca "null". */
+export function rotuloVeiculo(v: { placa: string | null; modelo: string | null; cor: string | null }): string {
+  if (v.placa) return v.placa;
+  return v.modelo ? `Sem placa — ${v.modelo}${v.cor ? ` ${v.cor}` : ''}` : 'Sem placa';
+}
+
 /** E.164 do Brasil: aceita máscara e +55/55 opcional (outro país é recusado). Celular: DDD + 9 + 8 dígitos; fixo: DDD + 2–5 + 7. */
 export function normalizarTelefone(raw: string): string | null {
   const t = raw.trim();

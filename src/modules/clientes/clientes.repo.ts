@@ -8,7 +8,7 @@ import type { Database } from '@/lib/db/types';
 import { normalizarPlaca } from './clientes.rules';
 
 export type Cliente = { id: string; nome: string; telefone: string | null; observacoes: string | null };
-export type Veiculo = { id: string; placa: string; modelo: string | null; cor: string | null; porteId: string; clienteId: string | null };
+export type Veiculo = { id: string; placa: string | null; modelo: string | null; cor: string | null; porteId: string; clienteId: string | null };
 
 export const camposCliente = { id: clientes.id, nome: clientes.nome, telefone: clientes.telefone, observacoes: clientes.observacoes };
 export const camposVeiculo = { id: veiculos.id, placa: veiculos.placa, modelo: veiculos.modelo, cor: veiculos.cor, porteId: veiculos.porteId, clienteId: veiculos.clienteId };

@@ -234,4 +234,23 @@ describe('clientes.actions', () => {
       expect(await salvarTelefoneClienteAction({ clienteId: cli.id, telefone: '(11) 98888-7777' })).toMatchObject({ ok: true, data: { nome: 'Ana', telefone: '+5511988887777', observacoes: 'vip' } });
       expect(await telefones()).toEqual(['Ana:+5511988887777', 'Do B:null']);
     }));
+
+  it('cadastroRapido sem placa: modelo obrigatório, placa+semPlaca recusado, dois sem placa coexistem e a busca nunca os devolve', () =>
+    run(async (db, f) => {
+      const porte = await porteDe(db, f.a.tenantId);
+      await como(f, f.a.membros.recepcao.userId);
+      expect(await cadastroRapidoAction({ semPlaca: true, porteId: porte.id })).toMatchObject({ ok: false, code: 'VALIDACAO', fieldErrors: { modelo: [expect.stringMatching(/modelo/i)] } });
+      expect(await cadastroRapidoAction({ semPlaca: true, porteId: porte.id, modelo: 'X' })).toMatchObject({ ok: false, code: 'VALIDACAO', fieldErrors: { modelo: expect.any(Array) } });
+      expect(await cadastroRapidoAction({ semPlaca: true, placa: 'ABC1234', modelo: 'CG 160', porteId: porte.id })).toMatchObject({ ok: false, code: 'VALIDACAO' });
+      const a = await cadastroRapidoAction({ semPlaca: true, modelo: 'CG 160', porteId: porte.id, clienteNome: 'Zé' });
+      const b = await cadastroRapidoAction({ semPlaca: true, modelo: 'Biz', porteId: porte.id });
+      if (!a.ok || !b.ok) throw new Error('falhou');
+      expect(a.data.veiculoId).not.toBe(b.data.veiculoId);
+      expect(await db.select().from(veiculos)).toMatchObject([{ placa: null }, { placa: null }]);
+      expect(await buscarPorPlacaAction({ placa: '' })).toEqual({ ok: true, data: null });
+      expect(await buscarPorPlacaAction({ placa: 'null' })).toEqual({ ok: true, data: null });
+      await comoLavador(f);
+      const c = await cadastroRapidoAction({ semPlaca: true, modelo: 'Pop 110', porteId: porte.id, clienteNome: 'Y' });
+      expect(c).toEqual({ ok: true, data: { veiculoId: expect.any(String) } }); // sem clienteId para o lavador
+    }));
 });

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { Alerta } from '@/components/catalogo-form';
 import { Placa } from '@/components/ui/placa';
+import { rotuloVeiculo } from '@/modules/clientes/clientes.rules';
 import { tintaDoStatus } from '@/components/ui/status-visual';
 import { Button } from '@/components/ui/button';
 import { Campo } from '@/components/ui/input';
@@ -168,7 +169,7 @@ function Cartao({ os, agora, pode, meuId, pendente, onTransitar, onDialogo }: {
 
   const detalhes = [os.veiculo.modelo, os.veiculo.cor].filter(Boolean).join(', ');
   return (
-    <article id={`os-${os.id}`} tabIndex={-1} aria-label={`OS ${os.numero} ${os.veiculo.placa}`} className={cn('space-y-3 rounded-2xl p-4', tintaDoStatus(os.status))}>
+    <article id={`os-${os.id}`} tabIndex={-1} aria-label={`OS ${os.numero} ${rotuloVeiculo(os.veiculo)}`} className={cn('space-y-3 rounded-2xl p-4', tintaDoStatus(os.status))}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-suave">OS {os.numero}</p>

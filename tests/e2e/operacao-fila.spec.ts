@@ -85,6 +85,29 @@ test('recepção abre OS pela placa nova, escolhe porte e serviços', async ({ p
   await cancelar(page, placa);
 });
 
+test('recepção abre OS de veículo sem placa pelo modelo', async ({ page }) => {
+  await entrar(page, 'recepcao@e2e.test');
+  await page.goto('/nova-os');
+  await page.getByRole('checkbox', { name: 'Veículo sem placa' }).check();
+  await expect(page.getByLabel('Placa', { exact: true })).toHaveCount(0);
+  await page.getByLabel('Porte', { exact: true }).selectOption({ label: 'Pequeno' });
+  await page.getByRole('checkbox', { name: /Lavagem completa/ }).check();
+  await page.getByRole('button', { name: 'Abrir OS' }).click();
+  await expect(page.getByText('Informe o modelo (2 a 40 letras).')).toBeVisible();
+  const modelo = `Moto ${placaNova()}`;
+  await page.getByLabel('Modelo').fill(modelo);
+  await page.getByRole('button', { name: 'Abrir OS' }).click();
+  await expect(page).toHaveURL('/fila');
+  const c = page.getByRole('article', { name: /^OS \d+ Sem placa — Moto / }).filter({ hasText: modelo });
+  await expect(c).toContainText('SEM PLACA');
+  await expect(c).not.toContainText(/null|undefined/);
+  await c.getByRole('button', { name: 'Cancelar' }).click();
+  const dialogo = page.getByRole('dialog');
+  await dialogo.getByLabel('Motivo').fill('limpeza do teste');
+  await dialogo.getByRole('button', { name: 'Confirmar cancelamento' }).click();
+  await expect(c).toHaveCount(0);
+});
+
 test('placa existente preenche modelo e porte', async ({ page }) => {
   await entrar(page, 'recepcao@e2e.test');
   await page.goto('/nova-os');

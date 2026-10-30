@@ -45,6 +45,15 @@ describe('schema da Fase 1', () => {
       expect(await pgCode(db.insert(veiculos).values({ tenantId: f.a.tenantId, placa: 'XYZ9A99', porteId: porteB.id }))).toBe('23503');
     }));
 
+  it('veículos sem placa coexistem no tenant; a unique segue valendo para placas preenchidas', () =>
+    withTestDatabase(async (db) => {
+      const f = await createFoundationFixtures(db);
+      const { porte } = await catalogo(db, f.a);
+      await db.insert(veiculos).values([{ tenantId: f.a.tenantId, placa: null, porteId: porte.id, modelo: 'CG 160' }, { tenantId: f.a.tenantId, placa: null, porteId: porte.id, modelo: 'Biz' }]);
+      await db.insert(veiculos).values({ tenantId: f.a.tenantId, placa: 'ABC1234', porteId: porte.id });
+      expect(await pgCode(db.insert(veiculos).values({ tenantId: f.a.tenantId, placa: 'ABC1234', porteId: porte.id }))).toBe('23505');
+    }));
+
   it('rejeita preco duplicado por servico+porte', () =>
     withTestDatabase(async (db) => {
       const f = await createFoundationFixtures(db);

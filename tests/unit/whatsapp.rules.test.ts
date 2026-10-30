@@ -37,6 +37,14 @@ describe('mensagens', () => {
     expect(m).not.toContain('(');
     expect(m).toContain('R$ 1.234,56');
   });
+  it('sem placa nunca escreve null/undefined', () => {
+    const base = { lavaJato: 'Lava X', placa: null, urlAcompanhar: 'https://x.com/a/t', totalCentavos: 100 };
+    for (const modelo of ['CG 160', null]) {
+      for (const m of [mensagemEntrada({ ...base, modelo }), mensagemPronto({ ...base, modelo })]) expect(m).not.toMatch(/null|undefined/);
+    }
+    expect(mensagemEntrada({ ...base, modelo: 'CG 160' })).toContain('seu CG 160.');
+    expect(mensagemPronto({ ...base, modelo: null })).toContain('seu veículo está');
+  });
   it.each([[0, 'R$ 0,00'], [5, 'R$ 0,05'], [5000, 'R$ 50,00'], [100000, 'R$ 1.000,00'], [123456789, 'R$ 1.234.567,89']])('formatarReais(%i)', (c, t) => {
     expect(formatarReais(c)).toBe(t);
   });

@@ -12,7 +12,7 @@ import { lavaJatos, ordensServico, osItens, veiculos, type OsStatus } from '@/li
 
 export type OsPublica = {
   lavaJato: { nome: string };
-  veiculo: { modelo: string | null; placa: string };
+  veiculo: { modelo: string | null; placa: string | null };
   status: OsStatus;
   linhaDoTempo: { entradaEm: Date; inicioLavagemEm: Date | null; prontoEm: Date | null; entregueEm: Date | null; canceladaEm: Date | null };
   itens: { nome: string; valorCentavos: number }[];

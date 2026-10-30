@@ -76,7 +76,8 @@ export async function cadastroRapido(
     assertPermission(ctx, 'os:abrir');
   }
   const r = await db.transaction(async (tx) => {
-    const existente = async () => (await tx.select(camposVeiculo).from(veiculos).where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.placa, input.placa))))[0];
+    const { placa } = input; // sem placa nunca reaproveita veículo: cada cadastro é um veículo novo
+    const existente = async () => (placa ? (await tx.select(camposVeiculo).from(veiculos).where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.placa, placa))))[0] : undefined);
     const achado = await existente();
     if (achado) return { veiculoId: achado.id, clienteId: achado.clienteId };
     const [porte] = await tx.select({ id: portes.id }).from(portes).where(and(eq(portes.tenantId, ctx.tenantId), eq(portes.id, input.porteId)));
@@ -84,7 +85,7 @@ export async function cadastroRapido(
     // veículo primeiro: se outra requisição criou a mesma placa agora, não sobra cliente órfão
     const [novo] = await tx
       .insert(veiculos)
-      .values({ tenantId: ctx.tenantId, placa: input.placa, porteId: input.porteId, modelo: input.modelo })
+      .values({ tenantId: ctx.tenantId, placa: placa ?? null, porteId: input.porteId, modelo: input.modelo })
       .onConflictDoNothing()
       .returning({ id: veiculos.id });
     if (!novo) {

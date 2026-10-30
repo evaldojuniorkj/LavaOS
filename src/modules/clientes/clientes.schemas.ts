@@ -29,6 +29,15 @@ export const salvarTelefoneClienteSchema = z.strictObject({ clienteId: id, telef
 
 export const salvarVeiculoSchema = z.strictObject({ id: id.optional(), placa, porteId: id, modelo: texto(80), cor: texto(40), clienteId: id.nullish() });
 
+// União { placa } | { semPlaca: true, modelo } em um objeto só, para o erro cair no campo certo.
 export const cadastroRapidoSchema = z
-  .strictObject({ placa, porteId: id, modelo: texto(80), clienteNome: texto(120), telefone: telefone.optional() })
+  .strictObject({ placa: placa.optional(), semPlaca: z.literal(true).optional(), porteId: id, modelo: texto(80), clienteNome: texto(120), telefone: telefone.optional() })
+  .superRefine((d, ctx) => {
+    if (!d.semPlaca) {
+      if (!d.placa) ctx.addIssue({ code: 'custom', path: ['placa'], message: 'Informe a placa.' });
+      return;
+    }
+    if (d.placa) ctx.addIssue({ code: 'custom', path: ['placa'], message: 'Informe a placa ou marque veículo sem placa, não os dois.' });
+    if (!d.modelo || d.modelo.length < 2 || d.modelo.length > 40) ctx.addIssue({ code: 'custom', path: ['modelo'], message: 'Informe o modelo (2 a 40 letras).' });
+  })
   .refine((d) => !d.telefone || d.clienteNome, { path: ['clienteNome'], message: 'Informe o nome do cliente.' });

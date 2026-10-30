@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import type { Porte } from '@/modules/catalogo/catalogo.repo';
 import { salvarClienteAction, salvarVeiculoAction } from '@/modules/clientes/clientes.actions';
 import type { Cliente, Veiculo } from '@/modules/clientes/clientes.repo';
+import { rotuloVeiculo } from '@/modules/clientes/clientes.rules';
 
 const campoSelect = 'block min-h-11 w-full rounded-md border border-linha bg-white px-3 text-base';
 
@@ -101,7 +102,7 @@ function VeiculoForm({ veiculo, clientes, portes, onAviso }: { veiculo?: Veiculo
   return (
     <form
       noValidate
-      aria-label={veiculo ? `Veículo ${veiculo.placa}` : 'Novo veículo'}
+      aria-label={veiculo ? `Veículo ${rotuloVeiculo(veiculo)}` : 'Novo veículo'}
       className="flex flex-wrap items-end gap-3"
       onSubmit={(e) => {
         e.preventDefault();
@@ -115,7 +116,7 @@ function VeiculoForm({ veiculo, clientes, portes, onAviso }: { veiculo?: Veiculo
       }}
     >
       <div className="w-36">
-        <Campo id={`veiculo-placa-${sufixo}`} name="placa" rotulo={veiculo ? 'Placa' : 'Nova placa'} defaultValue={veiculo?.placa} erro={erros.placa?.[0]} autoComplete="off" />
+        <Campo id={`veiculo-placa-${sufixo}`} name="placa" rotulo={veiculo ? 'Placa' : 'Nova placa'} defaultValue={veiculo?.placa ?? ''} erro={erros.placa?.[0]} autoComplete="off" />
       </div>
       <div className="w-40 space-y-1.5">
         <Label htmlFor={`veiculo-porte-${sufixo}`}>Porte</Label>

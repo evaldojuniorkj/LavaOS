@@ -16,7 +16,7 @@ import { abrirOsAction } from '@/modules/ordens/ordens.actions';
 type Servico = { id: string; nome: string; adicional: boolean; valorCentavos?: number };
 type Lavador = { membroId: string; nome: string; livre: boolean; sugerido: boolean };
 type Erros = Record<string, string[] | undefined>;
-type Busca = { placa: string } & ({ achado: true; veiculoId: string; modelo: string | null; porteId: string; cliente: string | null } | { achado: false });
+type Busca = { placa: string | null } & ({ achado: true; veiculoId: string; modelo: string | null; porteId: string; cliente: string | null } | { achado: false });
 
 const campoSelect = 'block min-h-11 w-full rounded-md border border-linha bg-white px-3 text-base aria-invalid:border-perigo';
 const PLACA_INVALIDA = 'Placa inválida. Use AAA-1234 ou AAA1B23.';
@@ -29,6 +29,7 @@ const mensagem = (r: Extract<ActionResult<unknown>, { ok: false }>) => (r.code =
 export function NovaOsForm({ portes, servicos, lavadores, titulo = 'Nova OS', destino = '/fila' }: { portes: Porte[]; servicos: Record<string, Servico[]>; lavadores: Lavador[] | null; titulo?: string; destino?: string }) {
   const router = useRouter();
   const [placa, setPlaca] = useState('');
+  const [semPlaca, setSemPlaca] = useState(false);
   const [busca, setBusca] = useState<Busca | null>(null);
   const [porteId, setPorteId] = useState('');
   const [selecionados, setSelecionados] = useState<string[]>([]);
@@ -73,7 +74,7 @@ export function NovaOsForm({ portes, servicos, lavadores, titulo = 'Nova OS', de
     iniciarAbertura(async () => {
       let veiculoId = busca.achado ? busca.veiculoId : veiculoCriado;
       if (!veiculoId) {
-        const c = await cadastroRapidoAction({ placa: busca.placa, porteId, modelo: f.modelo?.trim() || null, clienteNome: f.clienteNome?.trim() || null, telefone: f.telefone?.trim() || null });
+        const c = await cadastroRapidoAction({ ...(busca.placa ? { placa: busca.placa } : { semPlaca: true as const }), porteId, modelo: f.modelo?.trim() || null, clienteNome: f.clienteNome?.trim() || null, telefone: f.telefone?.trim() || null });
         if (!c.ok) {
           setErros(c.fieldErrors ?? {});
           return setErro(mensagem(c));
@@ -94,7 +95,22 @@ export function NovaOsForm({ portes, servicos, lavadores, titulo = 'Nova OS', de
   return (
     <form noValidate onSubmit={abrir} className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold text-tinta">{titulo}</h1>
-      <div className="flex flex-wrap items-end gap-3">
+      <label className="flex min-h-12 cursor-pointer items-center gap-3">
+        <input
+          type="checkbox"
+          className="size-5 shrink-0"
+          checked={semPlaca}
+          onChange={(e) => {
+            setSemPlaca(e.target.checked);
+            setBusca(e.target.checked ? { placa: null, achado: false } : null); // sem placa não há o que buscar: vai direto ao cadastro
+            setSelecionados([]);
+            setVeiculoCriado(null);
+            setErros({});
+          }}
+        />
+        Veículo sem placa
+      </label>
+      {!semPlaca && <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-0 flex-1 basis-48">
           <Campo
             id="placa"
@@ -118,7 +134,7 @@ export function NovaOsForm({ portes, servicos, lavadores, titulo = 'Nova OS', de
         <Button type="button" variante="secundario" onClick={buscar} disabled={buscando}>
           {buscando ? 'Buscando…' : 'Buscar placa'}
         </Button>
-      </div>
+      </div>}
 
       {busca?.achado && (
         <section aria-label="Veículo encontrado" className="rounded-lg border border-linha bg-white p-4">
@@ -136,7 +152,7 @@ export function NovaOsForm({ portes, servicos, lavadores, titulo = 'Nova OS', de
       {busca && !busca.achado && (
         <section aria-labelledby="cadastro-titulo" className="space-y-4 rounded-lg border border-linha bg-white p-4">
           <h2 id="cadastro-titulo" className="font-bold">
-            Placa nova: cadastre o veículo
+            {busca.placa ? 'Placa nova: cadastre o veículo' : 'Cadastre o veículo'}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
