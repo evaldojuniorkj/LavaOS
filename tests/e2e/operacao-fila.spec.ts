@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { entrarLavador, entrarStaff, pin, semRolagemHorizontal } from './login';
+import { entrarLavador, entrarStaff, pin, semRolagemHorizontal, SUFIXO } from './login';
 
 // Catálogo, veículo existente e o segundo lavador vêm do global-setup.
 const PLACA_EXISTENTE = 'EXS1A23';
@@ -279,6 +279,48 @@ test('queda do stream mostra Reconectando… e se recupera sozinha', async ({ pa
   await expect(cartao(page, placa)).toBeVisible();
   await cancelar(outra, placa);
   await outra.context().close();
+});
+
+test('lavador com PIN redefinido e stream caído vai ao login (autorização real, não só sessão)', async ({ page, browser }) => {
+  const s = SUFIXO();
+  const nome = `Fila ${s}`;
+  const ger = await novoContexto(browser);
+  await entrarStaff(ger, 'gerente@e2e.test', undefined, '/login?next=%2Fconfiguracoes%2Fequipe');
+  await expect(ger.getByRole('heading', { name: 'Equipe' })).toBeVisible();
+  const form = ger.getByRole('form', { name: 'Novo membro' });
+  await form.getByLabel('Perfil').selectOption({ label: 'Lavador' });
+  await form.getByLabel('Nome de exibição').fill(nome);
+  await form.getByLabel('Usuário', { exact: true }).fill(`fila.${s}`);
+  await form.getByLabel('PIN', { exact: true }).fill('0555');
+  await form.getByRole('button', { name: 'Cadastrar membro' }).click();
+  const linha = ger.getByRole('listitem').filter({ hasText: nome });
+  await expect(linha).toBeVisible();
+
+  await entrarLavador(page, `fila.${s}`, '0555');
+  await expect(page).toHaveURL('/fila');
+  await page.route('**/api/eventos', (r) => r.abort());
+  await page.reload();
+  await expect(page.getByRole('status')).toHaveText('Reconectando…');
+  await linha.getByRole('button', { name: 'Redefinir PIN' }).click();
+  await linha.getByLabel('Novo PIN').fill('0666');
+  await linha.getByRole('button', { name: 'Salvar PIN' }).click();
+  await expect(ger.getByRole('status')).toContainText('PIN redefinido.');
+  await page.unroute('**/api/eventos'); // a próxima tentativa recebe 401/403 e o EventSource desiste (CLOSED)
+  await expect(page).toHaveURL('/login?motivo=sessao', { timeout: 15_000 });
+  await ger.context().close();
+});
+
+test('stream recusado por falha passageira (503) reconecta sem deixar assinatura sobrando', async ({ page, request }) => {
+  const assinantes = async () => (await (await request.get('/api/teste/assinantes')).json()).assinantes as number;
+  await expect.poll(assinantes, { timeout: 10_000 }).toBe(0);
+  await entrar(page, 'recepcao@e2e.test');
+  await expect.poll(assinantes, { timeout: 10_000 }).toBe(1);
+  let pedidos = 0;
+  await page.route('**/api/eventos', (r) => (++pedidos === 1 ? r.fulfill({ status: 503 }) : r.continue()));
+  await page.reload(); // 503 fecha o EventSource; a sonda recebe 200 (autorizado) e é abortada; o stream é recriado
+  await expect.poll(() => pedidos, { timeout: 15_000 }).toBeGreaterThanOrEqual(3); // stream recusado, sonda, stream novo
+  await expect(page.getByText('Reconectando…')).toBeHidden({ timeout: 15_000 });
+  await expect.poll(assinantes, { timeout: 10_000 }).toBe(1); // só o stream novo: a sonda não ficou aberta
 });
 
 test('stream que fecha sem sessão leva ao login em vez de ficar reconectando', async ({ page, baseURL }) => {

@@ -42,13 +42,16 @@ export function useEventos(onRecarregar: () => void): { reconectando: boolean } 
       atual.onerror = () => {
         setReconectando(true);
         if (atual.readyState !== EventSource.CLOSED) return; // erro de rede: o navegador tenta de novo sozinho
-        // resposta não-200 (ex.: 403 sem sessão) fecha de vez: sem sessão vai ao login; senão (servidor reiniciando) reabre com backoff
-        fetch('/api/auth/get-session', { cache: 'no-store' })
-          .then((r) => r.json())
-          .then((s) => !s, () => false)
-          .then((semSessao) => {
+        // resposta não-200 fecha de vez: sonda o próprio /api/eventos (mesma autorização); 401/403 vai ao login, o resto reabre com backoff
+        const sonda = new AbortController();
+        fetch('/api/eventos', { signal: sonda.signal, cache: 'no-store', credentials: 'same-origin' })
+          .then((r) => {
+            sonda.abort(); // 200 abriria um stream a mais: só o status interessa
+            return r.status === 401 || r.status === 403;
+          }, () => false)
+          .then((negado) => {
             if (!ativo) return;
-            if (semSessao) return sair();
+            if (negado) return sair();
             nova = setTimeout(conectar, Math.min(30_000, 1_000 * 2 ** tentativas++));
           });
       };
