@@ -93,7 +93,7 @@ test('recepção abre OS de veículo sem placa pelo modelo', async ({ page }) =>
   await page.getByLabel('Porte', { exact: true }).selectOption({ label: 'Pequeno' });
   await page.getByRole('checkbox', { name: /Lavagem completa/ }).check();
   await page.getByRole('button', { name: 'Abrir OS' }).click();
-  await expect(page.getByText('Informe o modelo (2 a 40 letras).')).toBeVisible();
+  await expect(page.getByText('Informe o modelo (2 a 40 caracteres).')).toBeVisible();
   const modelo = `Moto ${placaNova()}`;
   await page.getByLabel('Modelo').fill(modelo);
   await page.getByRole('button', { name: 'Abrir OS' }).click();

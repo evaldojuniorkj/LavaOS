@@ -72,7 +72,7 @@ export function PainelView({ inicial }: { inicial: Painel }) {
           </h2>
           {/* só o resumo é região viva: os minutos mudam a cada recarga e não devem ser anunciados */}
           <p role="status" className={cn(painel.atrasadas.length === 0 ? 'mt-3 text-suave' : 'sr-only')}>
-            {painel.atrasadas.length === 0 ? 'Nenhuma OS atrasada' : `${painel.atrasadas.length} OSs atrasadas`}
+            {painel.atrasadas.length === 0 ? 'Nenhuma OS atrasada' : `${painel.atrasadas.length} ${painel.atrasadas.length === 1 ? 'OS atrasada' : 'OSs atrasadas'}`}
           </p>
           {painel.atrasadas.length > 0 && (
             <ul className="mt-3 space-y-2">

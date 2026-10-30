@@ -205,7 +205,7 @@ test('cadastro público e rotas nativas de organização respondem 404 por HTTP,
   // a senha do dono continua a mesma
   await page.getByRole('button', { name: 'Sair' }).click();
   await entrarStaff(page, 'dono@e2e.test');
-  await expect(page).toHaveURL('/fila');
+  await expect(page).toHaveURL('/painel');
 });
 
 test('cookie antigo após desativação ou reset de PIN perde get-session, páginas e actions', async ({ page, browser, playwright }) => {

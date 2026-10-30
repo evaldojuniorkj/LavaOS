@@ -38,6 +38,6 @@ export const cadastroRapidoSchema = z
       return;
     }
     if (d.placa) ctx.addIssue({ code: 'custom', path: ['placa'], message: 'Informe a placa ou marque veículo sem placa, não os dois.' });
-    if (!d.modelo || d.modelo.length < 2 || d.modelo.length > 40) ctx.addIssue({ code: 'custom', path: ['modelo'], message: 'Informe o modelo (2 a 40 letras).' });
+    if (!d.modelo || d.modelo.length < 2 || d.modelo.length > 40) ctx.addIssue({ code: 'custom', path: ['modelo'], message: 'Informe o modelo (2 a 40 caracteres).' });
   })
   .refine((d) => !d.telefone || d.clienteNome, { path: ['clienteNome'], message: 'Informe o nome do cliente.' });
