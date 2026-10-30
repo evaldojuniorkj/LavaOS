@@ -21,19 +21,34 @@ export async function GET(request: Request): Promise<Response> {
   let limpar = () => {};
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      const enviar = (s: string) => controller.enqueue(enc.encode(s));
+      let aberto = true;
+      const enviar = (s: string) => {
+        if (aberto) controller.enqueue(enc.encode(s));
+      };
+      // o cliente recarrega a fila ao receber `ready` e `resync` (o LISTEN pode ainda estar subindo neste momento)
       enviar('event: ready\ndata: {}\n\n');
       const cancelar = hub.assinar({ tenantId: ctx.tenantId }, (m) => enviar(`data: ${JSON.stringify(m)}\n\n`));
-      const heartbeat = setInterval(() => enviar(': hb\n\n'), 25_000); // mantém proxies sem cortar a conexão ociosa
+      // heartbeat mantém proxies sem cortar a conexão ociosa e revalida a sessão: membro desativado/sessão revogada perde o stream
+      const heartbeat = setInterval(async () => {
+        try {
+          await requirePermission(request.headers, 'fila:ver');
+          enviar(': hb\n\n');
+        } catch (err) {
+          if (err instanceof AcessoNegadoError) enviar('event: encerrado\ndata: {}\n\n');
+          fechar(); // outra falha (ex.: banco): fecha e o EventSource reconecta
+        }
+      }, 25_000);
       limpar = () => {
+        aberto = false;
         cancelar();
         clearInterval(heartbeat);
       };
       const fechar = () => {
+        if (!aberto) return;
         limpar();
         try {
           controller.close();
-        } catch {} // já fechado pelo cliente
+        } catch {} // stream já cancelado/com erro
       };
       if (request.signal.aborted) fechar();
       else request.signal.addEventListener('abort', fechar, { once: true });

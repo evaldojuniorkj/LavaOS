@@ -9,13 +9,12 @@ const eventoSchema = z.object({ tenantId: z.string(), osId: z.string(), tipo: z.
 type Estado = { parado: boolean; client?: Client; timer?: NodeJS.Timeout };
 const g = globalThis as { __lavaosListener?: Estado };
 
-/** Uma conexão LISTEN dedicada por processo (fora do pool); idempotente. Reconecta com backoff e emite `resync`. */
+/** Uma conexão LISTEN dedicada por processo (fora do pool); idempotente. Reconecta com backoff; emite `resync` a cada LISTEN ativo. */
 export function iniciarListener(): void {
   if (g.__lavaosListener) return;
   const estado: Estado = (g.__lavaosListener = { parado: false });
   const url = getServerEnv().DATABASE_URL;
   let tentativas = 0;
-  let jaConectou = false;
 
   const conectar = async () => {
     const client = new Client({ connectionString: url });
@@ -53,8 +52,8 @@ export function iniciarListener(): void {
     }
     if (estado.parado) return void client.end().catch(() => {});
     tentativas = 0;
-    if (jaConectou) hub.emitir({ tipo: 'resync' }); // eventos podem ter sido perdidos enquanto caído
-    jaConectou = true;
+    // a cada LISTEN, inclusive o primeiro: quem assinou antes (ou durante a queda) pode ter perdido eventos
+    hub.emitir({ tipo: 'resync' });
   };
   void conectar();
 }
