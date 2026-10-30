@@ -12,3 +12,6 @@ playwright-report/
 *.swo
 AGENTS.md
 next-env.d.ts
+
+# Planilhas do cliente piloto (dados pessoais)
+*.xlsx
