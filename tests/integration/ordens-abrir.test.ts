@@ -156,6 +156,31 @@ describe('abrirOsAction', () => {
       expect(await abrirOsAction({ veiculoId: s.veiculo.id, servicoIds: [s.lavagem.id] })).toMatchObject({ ok: true, data: { numero: 2, totalCentavos: 9999 } });
     }));
 
+  it('contador de numeração travado por outra transação: falha em português em ~5 s, sem pendurar', () =>
+    run(async (db, f) => {
+      const s = await semear(db, f.a.tenantId);
+      await db.insert(osContadores).values({ tenantId: f.a.tenantId, ultimo: 1 });
+      await como(f, f.a.membros.recepcao.userId);
+      const travado = Promise.withResolvers<void>();
+      const solta = Promise.withResolvers<void>();
+      const trava = db.transaction(async (tx) => {
+        await tx.execute(sql`select 1 from os_contadores where tenant_id = ${f.a.tenantId} for update`);
+        travado.resolve();
+        await solta.promise;
+      });
+      await travado.promise;
+      try {
+        const t0 = Date.now();
+        expect(await abrirOsAction({ veiculoId: s.veiculo.id, servicoIds: [s.lavagem.id] })).toEqual({ ok: false, code: 'CONFLITO_OS', message: 'Essa OS está sendo alterada. Tente novamente.' });
+        expect(Date.now() - t0).toBeGreaterThanOrEqual(4500);
+        expect(Date.now() - t0).toBeLessThan(9000);
+      } finally {
+        solta.resolve();
+        await trava;
+      }
+      expect(await db.select().from(ordensServico)).toHaveLength(0);
+    }), 20_000);
+
   it('lavador abre atribuída a si e inicioLavagemEm é nulo; resposta sem dinheiro', () =>
     run(async (db, f) => {
       const s = await semear(db, f.a.tenantId);

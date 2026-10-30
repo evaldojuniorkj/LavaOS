@@ -101,16 +101,18 @@ describe('clientes.actions', () => {
 
       const novo = await cadastroRapidoAction({ placa: 'bbb-2c22', porteId: porte.id, modelo: 'Uno', clienteNome: 'Novo', telefone: '11 97777-6666' });
       if (!novo.ok) throw new Error('falhou');
-      expect(novo.data.clienteId).not.toBeNull();
+      expect(novo.data).not.toHaveProperty('clienteId'); // lavador não recebe ids de cliente
       const [v] = await db.select().from(veiculos).where(eq(veiculos.id, novo.data.veiculoId));
-      expect(v).toMatchObject({ placa: 'BBB2C22', modelo: 'Uno', clienteId: novo.data.clienteId });
-      const [c] = await db.select().from(clientes).where(eq(clientes.id, novo.data.clienteId!));
+      expect(v).toMatchObject({ placa: 'BBB2C22', modelo: 'Uno', clienteId: expect.any(String) });
+      const [c] = await db.select().from(clientes).where(eq(clientes.id, v.clienteId!));
       expect(c).toMatchObject({ nome: 'Novo', telefone: '+5511977776666' });
 
       const antes = await tudo(db);
       const r = await cadastroRapidoAction({ placa: 'AAA1111', porteId: outro.id, modelo: 'Outro', clienteNome: 'Invasor', telefone: '11 95555-4444' });
-      expect(r).toEqual({ ok: true, data: { veiculoId: expect.any(String), clienteId: cli.id } });
+      expect(r).toEqual({ ok: true, data: { veiculoId: expect.any(String) } });
       expect(await tudo(db)).toBe(antes);
+      await como(f, f.a.membros.recepcao.userId);
+      expect(await cadastroRapidoAction({ placa: 'AAA1111', porteId: outro.id })).toEqual({ ok: true, data: { veiculoId: expect.any(String), clienteId: cli.id } });
     }));
 
   it('cadastroRapido: telefone sem nome e porte de outro tenant são recusados', () =>
@@ -154,7 +156,7 @@ describe('clientes.actions', () => {
       const porte = await porteDe(db, f.a.tenantId);
       await comoLavador(f);
       const r = await cadastroRapidoAction({ placa: 'ABC1234', porteId: porte.id, clienteNome: 'Ana' });
-      expect(Object.keys((r as { data: object }).data).sort()).toEqual(['clienteId', 'veiculoId']);
+      expect(Object.keys((r as { data: object }).data).sort()).toEqual(['veiculoId']);
       expect(JSON.stringify(r)).not.toMatch(/centavos|valor|total|preco|R\$/i);
     }));
 

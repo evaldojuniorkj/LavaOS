@@ -1,9 +1,11 @@
 import { asc, eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { getDatabase } from '@/lib/db/client';
-import { ordensServico, osEventos } from '@/lib/db/schema';
+import { membros, ordensServico, osEventos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
+import type { TenantContext } from '@/lib/auth/types';
 import { atribuirResponsavelAction, listarLavadoresAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
+import { transitarOs } from '@/modules/ordens/ordens.service';
 import { createAuthFixtures, type AuthFixtures } from '../helpers/auth';
 import { withTestDatabase } from '../helpers/db';
 import { criarMembro, criarOs, semearVeiculo, sessaoLavador, sessaoStaff } from '../helpers/ordens';
@@ -142,6 +144,34 @@ describe('transitarOsAction', () => {
         ['em_lavagem', 'pronto', f.a.membros.gerente.memberId],
         ['pronto', 'entregue', f.a.membros.gerente.memberId],
       ]);
+    }));
+
+  it('voltar a aguardando zera inicioLavagemEm e o novo início grava um instante posterior', () =>
+    run(async ({ db, f, os }) => {
+      const o = await os();
+      await comoLavador(f);
+      await transitarOsAction({ osId: o.id, esperado: 'aguardando', para: 'em_lavagem' });
+      const primeiro = (await linha(db, o.id)).inicioLavagemEm;
+      expect(primeiro).toBeInstanceOf(Date);
+      await como(f, f.a.membros.recepcao.userId);
+      await transitarOsAction({ osId: o.id, esperado: 'em_lavagem', para: 'aguardando' });
+      expect((await linha(db, o.id)).inicioLavagemEm).toBeNull();
+      await new Promise((r) => setTimeout(r, 20));
+      await comoLavador(f);
+      await transitarOsAction({ osId: o.id, esperado: 'aguardando', para: 'em_lavagem' });
+      expect((await linha(db, o.id)).inicioLavagemEm!.getTime()).toBeGreaterThan(primeiro!.getTime());
+    }));
+
+  it('lavador desativado não consegue Pegar e a OS segue sem responsável', () =>
+    run(async ({ db, f, os }) => {
+      const o = await os();
+      const { memberId, userId } = f.a.membros.lavador;
+      await db.update(membros).set({ ativo: false }).where(eq(membros.id, memberId));
+      // o contexto já havia sido emitido quando a desativação aconteceu
+      const ctx = { tenantId: f.a.tenantId, userId, memberId, perfil: 'lavador', sessionId: 'x' } as TenantContext;
+      await expect(transitarOs(ctx, { osId: o.id, esperado: 'aguardando', para: 'em_lavagem' }, db)).rejects.toMatchObject({ code: 'VALIDACAO', fieldErrors: { responsavelId: ['Escolha um lavador ativo.'] } });
+      expect(await linha(db, o.id)).toMatchObject({ status: 'aguardando', responsavelId: null });
+      expect(await eventos(db, o.id)).toEqual([]);
     }));
 
   it('corrigir em_lavagem→aguardando remove o responsável', () =>

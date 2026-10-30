@@ -9,7 +9,7 @@ import { hashPassword } from 'better-auth/crypto';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import pg from 'pg';
-import { assertTestDb, testUrls } from '../helpers/test-db';
+import { assertTestDb, testUrls, travarLavaosTest } from '../helpers/test-db';
 
 export const E2E_PILOT_SLUG = 'e2e';
 /**
@@ -22,6 +22,7 @@ export const E2E_ONBOARDING = { schema: 'onboarding', port: 3101, token: 'codigo
 export default async function globalSetup() {
   assertTestDb(testUrls.owner);
   assertTestDb(testUrls.app);
+  const liberar = await travarLavaosTest();
   const pool = new pg.Pool({ connectionString: testUrls.owner, max: 1 });
   try {
     await pool.query('DROP SCHEMA IF EXISTS public CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE; CREATE SCHEMA public;');
@@ -120,4 +121,5 @@ export default async function globalSetup() {
   } finally {
     await pool.end();
   }
+  return liberar; // teardown do Playwright
 }

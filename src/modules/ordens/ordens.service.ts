@@ -52,7 +52,7 @@ export async function abrirOs(ctx: TenantContext, input: z.output<typeof abrirOs
   // quem não direciona OS (lavador) só abre para si e não pode indicar ninguém, nem a si mesmo
   const balcao = can(ctx.perfil, 'os:atribuir');
   if (!balcao && input.responsavelId) throw erroCampo('responsavelId', 'O lavador só abre OS para si.');
-  return db.transaction(async (tx) => {
+  return emTransacao(db, async (tx) => {
     const veiculo = await buscarVeiculo(ctx, input.veiculoId, tx);
     if (!veiculo) throw erroCampo('veiculoId', 'Veículo não encontrado.');
     const lista = await servicosComPreco(ctx, input.servicoIds, veiculo.porteId, tx);
@@ -188,6 +188,8 @@ export async function transitarOs(
     }
     if (i.responsavelId !== undefined && !inicio) throw erroCampo('responsavelId', 'O responsável só é escolhido ao iniciar a lavagem.');
     if (explicito && !(await lavadorAtivo(ctx, i.responsavelId!, tx))) throw erroCampo('responsavelId', 'Escolha um lavador ativo.');
+    // Pegar de lavador: a desativação pode ter ocorrido depois de o contexto ser emitido
+    if (inicio && !explicito && ctx.perfil === 'lavador' && !(await lavadorAtivo(ctx, ctx.memberId, tx))) throw erroCampo('responsavelId', 'Escolha um lavador ativo.');
 
     const responsavelId = d.limpaResponsavel ? null : explicito ? i.responsavelId! : inicio ? (os.responsavelId ?? ctx.memberId) : os.responsavelId;
     const agora = sql`now()`;
@@ -196,7 +198,8 @@ export async function transitarOs(
       .set({
         status: i.para,
         ...(responsavelId !== os.responsavelId && { responsavelId, atribuidoEm: responsavelId ? agora : null }),
-        ...(inicio && { inicioLavagemEm: sql`coalesce(${ordensServico.inicioLavagemEm}, now())` }),
+        ...(inicio && { inicioLavagemEm: agora }),
+        ...(i.para === 'aguardando' && { inicioLavagemEm: null }), // correção: o tempo de lavagem recomeça no próximo início
         ...(i.para === 'pronto' && { prontoEm: agora }),
         ...(i.para === 'entregue' && { entregueEm: agora }),
         ...(i.para === 'cancelada' && { canceladaEm: agora, motivoCancelamento: i.motivo }),

@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, eq } from 'drizzle-orm';
 import type { z } from 'zod';
-import { assertPermission } from '@/lib/auth/permissions';
+import { assertPermission, can } from '@/lib/auth/permissions';
 import type { TenantContext } from '@/lib/auth/types';
 import { getDatabase } from '@/lib/db/client';
 import { clientes, portes, veiculos } from '@/lib/db/schema';
@@ -69,13 +69,13 @@ export async function cadastroRapido(
   ctx: TenantContext,
   input: z.output<typeof cadastroRapidoSchema>,
   db: Database = getDatabase(),
-): Promise<{ veiculoId: string; clienteId: string | null }> {
+): Promise<{ veiculoId: string; clienteId?: string | null }> {
   try {
     assertPermission(ctx, 'clientes:gerenciar');
   } catch {
     assertPermission(ctx, 'os:abrir');
   }
-  return db.transaction(async (tx) => {
+  const r = await db.transaction(async (tx) => {
     const existente = async () => (await tx.select(camposVeiculo).from(veiculos).where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.placa, input.placa))))[0];
     const achado = await existente();
     if (achado) return { veiculoId: achado.id, clienteId: achado.clienteId };
@@ -96,4 +96,6 @@ export async function cadastroRapido(
     await tx.update(veiculos).set({ clienteId: c.id }).where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.id, novo.id)));
     return { veiculoId: novo.id, clienteId: c.id };
   });
+  // quem só abre OS (lavador) não recebe id de cliente
+  return can(ctx.perfil, 'clientes:gerenciar') ? r : { veiculoId: r.veiculoId };
 }
