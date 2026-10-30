@@ -16,6 +16,8 @@ const schema = z
     BETTER_AUTH_URL: z.url(),
     LAVAOS_PILOT_SLUG: z.string().min(1),
     LAVAOS_MODE: z.enum(['development', 'test', 'production']),
+    // código de uso único do assistente /primeiro-acesso; ausente ou vazio = assistente desligado
+    LAVAOS_SETUP_TOKEN: z.preprocess((v) => v || undefined, z.string().min(16).optional()),
   })
   .superRefine((env, ctx) => {
     const test = new URL(env.TEST_DATABASE_URL);

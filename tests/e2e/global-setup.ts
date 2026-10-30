@@ -4,6 +4,7 @@
  * Sem imports de src/: lá tudo é server-only.
  */
 import { randomInt, randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { hashPassword } from 'better-auth/crypto';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
@@ -11,6 +12,12 @@ import pg from 'pg';
 import { assertTestDb, testUrls } from '../helpers/test-db';
 
 export const E2E_PILOT_SLUG = 'e2e';
+/**
+ * Assistente de primeiro acesso: precisa de um banco SEM lava jato. Um segundo servidor (mesmo build) usa o schema
+ * `onboarding` do próprio lavaos_test (search_path via PGOPTIONS), sem tocar nas fixtures do schema public.
+ * O código é valor fixo de teste, não segredo.
+ */
+export const E2E_ONBOARDING = { schema: 'onboarding', port: 3101, token: 'codigo-instalacao-e2e-0001' };
 
 export default async function globalSetup() {
   assertTestDb(testUrls.owner);
@@ -87,6 +94,14 @@ export default async function globalSetup() {
       'lavador.b',
       await hashPassword(pin),
     ]);
+    // mesmas migrations no schema onboarding: as FKs do drizzle-kit nomeiam "public" explicitamente
+    const { schema } = E2E_ONBOARDING;
+    await pool.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema}; GRANT USAGE ON SCHEMA ${schema} TO lavaos_app; SET search_path TO ${schema}`);
+    const { entries } = JSON.parse(readFileSync('drizzle/meta/_journal.json', 'utf8')) as { entries: { tag: string }[] };
+    for (const { tag } of entries) {
+      for (const stmt of readFileSync(`drizzle/${tag}.sql`, 'utf8').split('--> statement-breakpoint')) await pool.query(stmt.replaceAll('"public".', `"${schema}".`));
+    }
+    await pool.query('RESET search_path');
     Object.assign(process.env, { E2E_SENHA: senha, E2E_PIN: pin });
   } finally {
     await pool.end();

@@ -16,6 +16,12 @@ export function isAuthHttpPathAllowed(method: string, path: string): boolean {
   return PERMITIDOS.has(`${method.toUpperCase()} ${path}`);
 }
 
+/**
+ * Páginas públicas fora do matcher do proxy: /login, /acompanhar/* (só rate limit no proxy) e /primeiro-acesso.
+ * /primeiro-acesso não é rota de /api/auth: a action dele autoriza pelo código de instalação (LAVAOS_SETUP_TOKEN)
+ * + sistema sem lava jato, não por requirePermission; sem o token a página responde 404 e a action recusa.
+ */
+
 /** Telas internas existentes; o retorno pós-login só aceita uma delas, por igualdade exata. */
 export const ROTAS_INTERNAS: readonly string[] = ['/inicio', '/fila', '/nova-os', '/configuracoes/equipe', '/lavador', '/lavador/nova'];
 

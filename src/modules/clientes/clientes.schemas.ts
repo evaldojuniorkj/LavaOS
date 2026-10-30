@@ -11,7 +11,7 @@ const placa = z.string().transform((v, ctx) => {
   if (!p) ctx.issues.push({ code: 'custom', message: 'Placa inválida. Use AAA-1234 ou AAA1B23.', input: v });
   return p ?? z.NEVER;
 });
-const telefone = z
+export const telefone = z
   .string()
   .trim()
   .nullish()

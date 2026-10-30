@@ -37,6 +37,10 @@ pnpm dev                       # http://localhost:3000
 
 `pnpm db:seed:dev` cria o tenant `LAVAOS_PILOT_SLUG` e um dono (`SEED_OWNER_EMAIL`, `SEED_OWNER_NOME`, `SEED_TENANT_NOME` opcionais). A senha vem de `SEED_OWNER_PASSWORD` ou é digitada sem eco. Só roda com `LAVAOS_MODE` development/test contra `lavaos_dev`/`lavaos_test` locais; reexecutar não altera credenciais existentes. **Nunca é executado em produção nem no CI.**
 
+## Primeiro acesso (instalação)
+
+Num banco sem lava jato, `/primeiro-acesso` cria o lava jato (slug = `LAVAOS_PILOT_SLUG`), o dono, os 4 portes padrão e serviços de exemplo **inativos e sem preço** (defina os preços e ative em Configurações > Catálogo). O assistente só existe com `LAVAOS_SETUP_TOKEN` definido (mín. 16 caracteres); sem ele a página responde 404. O formulário pede esse código de instalação (5 tentativas por IP a cada 15 minutos). Depois do cadastro a página redireciona ao login; remova o `LAVAOS_SETUP_TOKEN` do servidor.
+
 ## Login e gestão de equipe
 
 - Dono, gerente e recepção entram por e-mail e senha; quem tem vínculo com mais de um lava jato escolhe um antes de entrar.
@@ -51,7 +55,7 @@ pnpm dev                       # http://localhost:3000
 | `pnpm lint` | ESLint |
 | `pnpm typecheck` | `next typegen` + `tsc --noEmit` |
 | `pnpm test` | Vitest: projetos `unit` e depois `integration` (`pnpm test:unit`, `pnpm test:integration` para um só) |
-| `pnpm test:e2e` | Playwright (desktop e mobile): compila, zera `lavaos_test`, cria as fixtures e sobe o servidor standalone em `http://localhost:3100` com `LAVAOS_MODE=test`; encerra o servidor ao fim |
+| `pnpm test:e2e` | Playwright (desktop e mobile): compila, zera `lavaos_test`, cria as fixtures e sobe o servidor standalone em `http://localhost:3100` com `LAVAOS_MODE=test` (e um segundo, em `:3101`, com o assistente de primeiro acesso ligado sobre o schema vazio `onboarding` do mesmo banco); encerra o servidor ao fim |
 | `pnpm verify:foundation` | lint → typecheck → test → build → E2E, parando no primeiro erro; o E2E reaproveita o build recém-feito; recusa testes marcados `.only/.skip/.todo/.fixme` |
 
 Integração e E2E **zeram** `lavaos_test` e rodam em série (nunca em paralelo entre si). A URL vem de uma só fonte, `tests/helpers/test-db.ts` (padrões do compose ou `TEST_DATABASE_URL`/`MIGRATION_DATABASE_URL` do `.env.local`), e a limpeza só aceita o banco `lavaos_test` em `localhost`/`127.0.0.1`/`[::1]`. O E2E gera a cada execução o `BETTER_AUTH_SECRET`, as senhas e o PIN das fixtures; traces só ficam em `test-results/` local (ignorado pelo git) e são desligados no CI.

@@ -24,10 +24,10 @@ export class EquipeError extends Error {
   }
 }
 
-type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+export type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 const naoEncontrado = () => new EquipeError('NAO_ENCONTRADO', 'Membro não encontrado.');
 
-async function emTransacao<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> {
+export async function emTransacao<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> {
   try {
     return await db.transaction(fn);
   } catch (err) {
@@ -73,23 +73,24 @@ async function travarAlvo(tx: Tx, ctx: TenantContext, memberId: string) {
 export async function createMember(ctx: TenantContext, input: CreateMemberInput, db: Database = getDatabase()): Promise<MemberSummary> {
   const lavador = input.perfil === 'lavador';
   const segredo = await hashSecret(lavador ? input.pin : input.senha); // fora da transação: não segura travas durante o scrypt
-  const userId = crypto.randomUUID();
   return emTransacao(db, async (tx) => {
     const ator = await travarAtor(tx, ctx);
     const lideranca = input.perfil === 'dono' || input.perfil === 'gerente';
     if (!can(ator.perfil, lideranca ? 'equipe:gerenciar_lideranca' : 'equipe:gerenciar')) throw new AcessoNegadoError();
-    // sempre um user novo: e-mail existente (de qualquer tenant) é conflito, nunca reassociação
-    await tx.insert(user).values({ id: userId, name: input.nomeExibicao, email: lavador ? `${userId}@lavador.invalid` : input.email });
-    if (!lavador) await tx.insert(account).values({ userId, accountId: userId, providerId: 'credential', password: segredo });
-    const [m] = await tx
-      .insert(membros)
-      .values({ tenantId: ctx.tenantId, userId, perfil: input.perfil, nomeExibicao: input.nomeExibicao })
-      .returning(campos);
-    if (lavador) {
-      await tx.insert(credenciaisLavador).values({ tenantId: ctx.tenantId, membroId: m.id, usuarioNormalizado: input.usuario, pinHash: segredo });
-    }
-    return m;
+    return inserirMembro(tx, ctx.tenantId, input, segredo);
   });
+}
+
+/** user + conta credential (staff) ou credencial PIN (lavador) + vínculo, na transação do chamador. `segredo` já vem com hash. */
+export async function inserirMembro(tx: Tx, tenantId: string, input: CreateMemberInput, segredo: string): Promise<MemberSummary> {
+  const userId = crypto.randomUUID();
+  const lavador = input.perfil === 'lavador';
+  // sempre um user novo: e-mail existente (de qualquer tenant) é conflito, nunca reassociação
+  await tx.insert(user).values({ id: userId, name: input.nomeExibicao, email: lavador ? `${userId}@lavador.invalid` : input.email });
+  if (!lavador) await tx.insert(account).values({ userId, accountId: userId, providerId: 'credential', password: segredo });
+  const [m] = await tx.insert(membros).values({ tenantId, userId, perfil: input.perfil, nomeExibicao: input.nomeExibicao }).returning(campos);
+  if (lavador) await tx.insert(credenciaisLavador).values({ tenantId, membroId: m.id, usuarioNormalizado: input.usuario, pinHash: segredo });
+  return m;
 }
 
 export async function deactivateMember(ctx: TenantContext, memberId: string, db: Database = getDatabase()): Promise<void> {

@@ -22,4 +22,5 @@ export function proxy(request: NextRequest) {
   return NextResponse.redirect(login);
 }
 
+// /primeiro-acesso fica de fora de propósito: é público (ver route-policy.ts)
 export const config = { matcher: ['/inicio', '/fila', '/lavador/:path*', '/nova-os', '/configuracoes/:path*', '/acompanhar/:path*'] };

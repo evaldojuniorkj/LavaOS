@@ -39,4 +39,11 @@ describe('parseServerEnv', () => {
     const env = parseServerEnv({ ...valid, DATABASE_URL: valid.TEST_DATABASE_URL, LAVAOS_MODE: 'test' });
     expect(env.DATABASE_URL).toBe(valid.TEST_DATABASE_URL);
   });
+
+  it('código de instalação é opcional, mas quando definido tem ao menos 16 caracteres', () => {
+    expect(parseServerEnv(valid).LAVAOS_SETUP_TOKEN).toBeUndefined();
+    expect(parseServerEnv({ ...valid, LAVAOS_SETUP_TOKEN: '' }).LAVAOS_SETUP_TOKEN).toBeUndefined();
+    expect(parseServerEnv({ ...valid, LAVAOS_SETUP_TOKEN: 'x'.repeat(16) }).LAVAOS_SETUP_TOKEN).toBe('x'.repeat(16));
+    expect(() => parseServerEnv({ ...valid, LAVAOS_SETUP_TOKEN: 'curto' })).toThrow();
+  });
 });
