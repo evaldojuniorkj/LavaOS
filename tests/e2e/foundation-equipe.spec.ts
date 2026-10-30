@@ -66,7 +66,7 @@ for (const perfil of ['recepcao', 'lavador'] as const) {
     } else {
       await entrarStaff(page, 'recepcao@e2e.test');
     }
-    await expect(page).toHaveURL('/inicio');
+    await expect(page).toHaveURL('/fila');
     await expect(page.getByRole('link', { name: 'Equipe' })).toHaveCount(0);
     await page.goto('/configuracoes/equipe');
     await expect(page.getByRole('heading', { name: 'Acesso negado' })).toBeVisible();
@@ -86,7 +86,7 @@ test('reset de PIN derruba a sessão do lavador e só o PIN novo entra', async (
 
   const lav = await novoContexto(browser);
   await entrarLavador(lav, `reset.${s}`, '0111');
-  await expect(lav).toHaveURL('/inicio');
+  await expect(lav).toHaveURL('/fila');
 
   await linha(page, `Reset ${s}`).getByRole('button', { name: 'Redefinir PIN' }).click();
   await linha(page, `Reset ${s}`).getByLabel('Novo PIN').fill('0222');
@@ -99,7 +99,7 @@ test('reset de PIN derruba a sessão do lavador e só o PIN novo entra', async (
   await expect(lav.getByRole('main').getByRole('alert')).toHaveText(PIN_INVALIDO);
   await lav.getByLabel('PIN', { exact: true }).fill('0222');
   await lav.getByRole('button', { name: 'Entrar' }).click();
-  await expect(lav).toHaveURL('/inicio');
+  await expect(lav).toHaveURL('/fila');
   await lav.context().close();
 });
 

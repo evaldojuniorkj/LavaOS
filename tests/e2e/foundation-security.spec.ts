@@ -150,10 +150,10 @@ test('lavador e recepção reenviando as actions reais do dono recebem acesso ne
 
   const lav = await novoContexto(browser);
   await entrarLavador(lav, 'lavador.e2e', pin());
-  await expect(lav).toHaveURL('/inicio');
+  await expect(lav).toHaveURL('/fila');
   const rec = await novoContexto(browser);
   await entrarStaff(rec, 'recepcao@e2e.test');
-  await expect(rec).toHaveURL('/inicio');
+  await expect(rec).toHaveURL('/fila');
 
   const antes = await contagens();
   for (const quem of [lav, rec]) {
@@ -204,7 +204,7 @@ test('cadastro público e rotas nativas de organização respondem 404 por HTTP,
   // a senha do dono continua a mesma
   await page.getByRole('button', { name: 'Sair' }).click();
   await entrarStaff(page, 'dono@e2e.test');
-  await expect(page).toHaveURL('/inicio');
+  await expect(page).toHaveURL('/fila');
 });
 
 test('cookie antigo após desativação ou reset de PIN perde get-session, páginas e actions', async ({ page, browser, playwright }) => {
@@ -230,7 +230,7 @@ test('cookie antigo após desativação ou reset de PIN perde get-session, pági
   const criar = cap();
   const lav = await novoContexto(browser);
   await entrarLavador(lav, `antigo.${s}`, '0777');
-  await expect(lav).toHaveURL('/inicio');
+  await expect(lav).toHaveURL('/fila');
   // o cookie salvo antes da revogação vai fixo em todo pedido: o servidor apagar o cookie não muda o teste
   const { baseURL, extraHTTPHeaders } = test.info().project.use;
   const velhos: APIRequestContext[] = [];

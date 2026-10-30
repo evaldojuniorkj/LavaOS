@@ -17,6 +17,8 @@ export const hub = {
     assinantes.add(a);
     return () => void assinantes.delete(a);
   },
+  /** Diagnóstico: só lido pelo endpoint de teste (LAVAOS_MODE=test). */
+  contar: (): number => assinantes.size,
   emitir(m: Mensagem): void {
     for (const { filtro, enviar } of assinantes) {
       if (m.tipo !== 'resync' && (m.tenantId !== filtro.tenantId || (filtro.osId !== undefined && filtro.osId !== m.osId))) continue;

@@ -2,7 +2,6 @@ import { expect, test } from '@playwright/test';
 import { entrarLavador, entrarStaff, pin, semRolagemHorizontal } from './login';
 
 const PIN_INVALIDO = 'Usuário ou PIN inválidos. Após 5 erros seguidos o acesso fica bloqueado por 15 minutos.';
-const PRONTA = 'Fundação pronta; operação em preparação';
 
 test('anônimo é levado ao login, com retorno só para caminho conhecido', async ({ page }) => {
   await page.goto('/');
@@ -15,9 +14,9 @@ test('anônimo é levado ao login, com retorno só para caminho conhecido', asyn
 });
 
 for (const next of ['//evil.example', '/\\evil.example', 'https://evil.example/inicio', '/inicio/../api/auth/sign-out', '/api/auth/get-session']) {
-  test(`retorno externo ou desconhecido vai para /inicio: ${next}`, async ({ page }) => {
+  test(`retorno externo ou desconhecido vai para o início (/inicio → /fila): ${next}`, async ({ page }) => {
     await entrarStaff(page, 'recepcao@e2e.test', undefined, `/login?next=${encodeURIComponent(next)}`);
-    await expect(page).toHaveURL('/inicio');
+    await expect(page).toHaveURL('/fila');
   });
 }
 
@@ -54,12 +53,12 @@ test('validação de campos em português antes de enviar', async ({ page }) => 
 
 test('recepção entra, vê início sem equipe e sai', async ({ page }) => {
   await entrarStaff(page, 'recepcao@e2e.test');
-  await expect(page).toHaveURL('/inicio');
-  await expect(page.getByText(PRONTA)).toBeVisible();
+  await expect(page).toHaveURL('/fila');
+  await expect(page.getByRole('heading', { name: 'Fila', level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Equipe' })).toHaveCount(0);
   await semRolagemHorizontal(page);
   await page.goto('/login'); // sessão válida: login devolve ao início
-  await expect(page).toHaveURL('/inicio');
+  await expect(page).toHaveURL('/fila');
   await page.getByRole('button', { name: 'Sair' }).click();
   await expect(page).toHaveURL('/login');
   await page.goto('/inicio');
@@ -74,8 +73,8 @@ test('lavador entra por usuário/PIN com zero inicial; erro de PIN usa a mensage
   await expect(page.getByLabel('PIN', { exact: true })).toHaveValue(pin()); // zero inicial preservado
   await expect(page.getByLabel('PIN', { exact: true })).toHaveAttribute('inputmode', 'numeric');
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page).toHaveURL('/inicio');
-  await expect(page.getByText(PRONTA)).toBeVisible();
+  await expect(page).toHaveURL('/fila');
+  await expect(page.getByRole('heading', { name: 'Fila', level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Equipe' })).toHaveCount(0);
   const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));
   expect(storage).not.toContain(pin());
@@ -87,7 +86,7 @@ test('staff com dois lava jatos escolhe um antes de entrar', async ({ page }) =>
   await entrarStaff(page, 'multi@e2e.test');
   await expect(page.getByRole('heading', { name: 'Escolha o lava jato' })).toBeVisible();
   await page.getByRole('button', { name: 'Lava Jato E2E B' }).click();
-  await expect(page).toHaveURL('/inicio');
+  await expect(page).toHaveURL('/fila');
   await expect(page.getByText('(Gerente)')).toBeVisible(); // perfil do vínculo escolhido, vindo do servidor
   await expect(page.getByRole('link', { name: 'Equipe' })).toBeVisible();
 });

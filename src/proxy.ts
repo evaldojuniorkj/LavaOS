@@ -9,4 +9,4 @@ export function proxy(request: NextRequest) {
   return NextResponse.redirect(login);
 }
 
-export const config = { matcher: ['/inicio', '/configuracoes/:path*'] };
+export const config = { matcher: ['/inicio', '/fila', '/nova-os', '/configuracoes/:path*'] };

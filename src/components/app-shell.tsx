@@ -10,12 +10,15 @@ import { cn } from '@/lib/utils';
 
 export const PERFIL_ROTULO: Record<Perfil, string> = { dono: 'Dono', gerente: 'Gerente', recepcao: 'Recepção', lavador: 'Lavador' };
 
-/** Navegação só para telas existentes; o itens Equipe e Catálogo são conveniência, a regra é do servidor. */
-export function AppShell({ nome, perfil, podeEquipe, podeCatalogo, podeClientes, children }: { nome: string; perfil: Perfil; podeEquipe: boolean; podeCatalogo: boolean; podeClientes: boolean; children: React.ReactNode }) {
+/** Navegação só para telas existentes e por permissão; é conveniência, a regra é do servidor. */
+export function AppShell({ nome, perfil, podeFila, podeAbrirOs, podeEquipe, podeCatalogo, podeClientes, children }: { nome: string; perfil: Perfil; podeFila: boolean; podeAbrirOs: boolean; podeEquipe: boolean; podeCatalogo: boolean; podeClientes: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [saindo, setSaindo] = useState(false);
-  const itens = [{ href: '/inicio', rotulo: 'Início' }, ...(podeClientes ? [{ href: '/clientes', rotulo: 'Clientes' }] : []),
+  const itens = [
+    ...(podeFila ? [{ href: '/fila', rotulo: 'Fila' }] : []),
+    ...(podeAbrirOs ? [{ href: '/nova-os', rotulo: 'Nova OS' }] : []),
+    ...(podeClientes ? [{ href: '/clientes', rotulo: 'Clientes' }] : []),
     ...(podeEquipe ? [{ href: '/configuracoes/equipe', rotulo: 'Equipe' }] : []),
     ...(podeCatalogo ? [{ href: '/configuracoes/catalogo', rotulo: 'Catálogo' }] : []),
   ];
@@ -29,11 +32,11 @@ export function AppShell({ nome, perfil, podeEquipe, podeCatalogo, podeClientes,
   return (
     <div className="min-h-screen bg-enxague">
       <header className="bg-tinta text-white">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
           <span className="text-xl font-extrabold tracking-tight">
             Lava<span className="text-sinal">OS</span>
           </span>
-          <nav aria-label="Principal" className="order-last flex w-full gap-1 sm:order-none sm:w-auto">
+          <nav aria-label="Principal" className="order-last flex w-full flex-wrap gap-1 sm:order-none sm:w-auto">
             {itens.map((i) => (
               <Link
                 key={i.href}
@@ -58,7 +61,7 @@ export function AppShell({ nome, perfil, podeEquipe, podeCatalogo, podeClientes,
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-4xl px-4 py-8">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
     </div>
   );
 }

@@ -46,6 +46,21 @@ export default async function globalSetup() {
         await pool.query(`insert into account (user_id, account_id, provider_id, password) values ($1, $2, 'credential', $3)`, [id, id, hashSenha]);
       }
     }
+    // operação (fila/Nova OS): catálogo com principal e adicional, um veículo já cadastrado e um segundo lavador (sem login)
+    const porte = async (nome: string, ordem: number) => (await pool.query('insert into portes (tenant_id, nome, ordem) values ($1, $2, $3) returning id', [t.id, nome, ordem])).rows[0].id as string;
+    const servico = async (nome: string, adicional: boolean) =>
+      (await pool.query(`insert into servicos (tenant_id, nome, adicional, comissao_tipo, comissao_valor) values ($1, $2, $3, 'percentual', 3000) returning id`, [t.id, nome, adicional])).rows[0].id as string;
+    const [pequeno, grande, lavagem, cera] = [await porte('Pequeno', 1), await porte('Grande', 2), await servico('Lavagem completa', false), await servico('Cera', true)];
+    for (const [s, p, v] of [[lavagem, pequeno, 5000], [lavagem, grande, 8000], [cera, pequeno, 2000], [cera, grande, 3000]] as const) {
+      await pool.query('insert into precos (tenant_id, servico_id, porte_id, valor_centavos) values ($1, $2, $3, $4)', [t.id, s, p, v]);
+    }
+    const {
+      rows: [cli],
+    } = await pool.query(`insert into clientes (tenant_id, nome, telefone) values ($1, 'Cliente Existente E2E', '+5511988887777') returning id`, [t.id]);
+    await pool.query(`insert into veiculos (tenant_id, placa, modelo, porte_id, cliente_id) values ($1, 'EXS1A23', 'Fusca E2E', $2, $3)`, [t.id, grande, cli.id]);
+    const lav2 = randomUUID();
+    await pool.query('insert into "user" (id, name, email) values ($1, $2, $3)', [lav2, 'Lavador Dois E2E', `${lav2}@lavador.invalid`]);
+    await pool.query(`insert into membros (tenant_id, user_id, perfil, nome_exibicao) values ($1, $2, 'lavador', 'Lavador Dois E2E')`, [t.id, lav2]);
     // staff com vínculo ativo em dois lava jatos: precisa escolher um no login
     const {
       rows: [b],

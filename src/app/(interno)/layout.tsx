@@ -11,7 +11,7 @@ export default async function InternoLayout({ children }: { children: React.Reac
   if (!ctx) redirect('/login?motivo=sessao');
   const membro = await findMember(ctx, ctx.memberId);
   return (
-    <AppShell nome={membro?.nomeExibicao ?? ''} perfil={ctx.perfil} podeEquipe={can(ctx.perfil, 'equipe:gerenciar')} podeCatalogo={can(ctx.perfil, 'catalogo:gerenciar')} podeClientes={can(ctx.perfil, 'clientes:gerenciar')}>
+    <AppShell nome={membro?.nomeExibicao ?? ''} perfil={ctx.perfil} podeFila={can(ctx.perfil, 'fila:ver')} podeAbrirOs={can(ctx.perfil, 'os:abrir')} podeEquipe={can(ctx.perfil, 'equipe:gerenciar')} podeCatalogo={can(ctx.perfil, 'catalogo:gerenciar')} podeClientes={can(ctx.perfil, 'clientes:gerenciar')}>
       {children}
     </AppShell>
   );
