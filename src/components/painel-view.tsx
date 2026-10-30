@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Placa } from '@/components/ui/placa';
 import { tintaDoStatus } from '@/components/ui/status-visual';
 import { useEventos } from '@/components/use-eventos';
-import { cn, tempoDesde } from '@/lib/utils';
+import { cn, duracao } from '@/lib/utils';
 import { carregarPainelAction } from '@/modules/painel/painel.actions';
 import type { Painel } from '@/modules/painel/painel.repo';
 
@@ -46,12 +46,12 @@ export function PainelView({ inicial }: { inicial: Painel }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-4xl font-extrabold tracking-tight text-tinta">Painel</h1>
-        <p role="status" className="empty:hidden rounded-md bg-sinal/25 px-3 py-1 text-sm font-semibold text-tinta">
+        <p role="status" className="empty:hidden rounded-md bg-sinal/25 px-3 py-1 text-base font-semibold text-tinta">
           {falhou || reconectando ? `Sem conexão — mostrando dados de ${hhmm(painel.atualizadoEm)}` : ''}
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {cartoes.map((k) => (
           <section key={k.titulo} className={cn('rounded-3xl p-5', k.tinta)}>
             <h2 className="text-lg font-bold text-tinta">{k.titulo}</h2>
@@ -70,25 +70,25 @@ export function PainelView({ inicial }: { inicial: Painel }) {
           <h2 id="painel-atrasadas" className="text-lg font-bold text-tinta">
             OSs atrasadas
           </h2>
-          <div role="status" className="mt-3">
-            {painel.atrasadas.length === 0 ? (
-              <p className="text-suave">Nenhuma OS atrasada</p>
-            ) : (
-              <ul className="space-y-2">
-                {painel.atrasadas.map((o) => (
-                  <li key={o.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-2xl bg-enxague px-4 py-3">
-                    <span className="flex items-center gap-3">
-                      <span className="font-bold text-tinta">OS {o.numero}</span>
-                      <Placa valor={o.placa} />
-                    </span>
-                    <span className="text-sm text-suave">
-                      {o.status === 'aguardando' ? 'Aguardando' : 'Em lavagem'} · <span className="font-semibold text-tinta">{tempoDesde(new Date(0), o.minutos * 60_000)}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          {/* só o resumo é região viva: os minutos mudam a cada recarga e não devem ser anunciados */}
+          <p role="status" className={cn(painel.atrasadas.length === 0 ? 'mt-3 text-suave' : 'sr-only')}>
+            {painel.atrasadas.length === 0 ? 'Nenhuma OS atrasada' : `${painel.atrasadas.length} OSs atrasadas`}
+          </p>
+          {painel.atrasadas.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {painel.atrasadas.map((o) => (
+                <li key={o.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-2xl bg-enxague px-4 py-3">
+                  <span className="flex items-center gap-3">
+                    <span className="font-bold text-tinta">OS {o.numero}</span>
+                    <Placa valor={o.placa} />
+                  </span>
+                  <span className="text-base text-suave">
+                    {o.status === 'aguardando' ? 'Aguardando' : 'Em lavagem'} · <span className="font-semibold text-tinta">{duracao(o.minutos)}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section aria-labelledby="painel-lavadores" className="rounded-3xl bg-white p-5 shadow-cartao">
@@ -102,7 +102,7 @@ export function PainelView({ inicial }: { inicial: Painel }) {
               {painel.lavadores.map((l) => (
                 <li key={l.membroId} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-2xl bg-enxague px-4 py-3">
                   <span className="font-semibold text-tinta">{l.nome}</span>
-                  <span className="flex items-center gap-2 text-sm">
+                  <span className="flex items-center gap-2 text-base">
                     {l.osEmLavagem.length > 0 && <span className="text-suave">{l.osEmLavagem.map((n) => `OS ${n}`).join(', ')}</span>}
                     <span className={cn('rounded-full px-3 py-1 font-semibold', l.livre ? 'bg-pronto/15 text-tinta' : 'bg-sinal/30 text-tinta')}>{l.livre ? 'Livre' : 'Ocupado'}</span>
                   </span>
