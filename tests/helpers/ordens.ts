@@ -28,7 +28,7 @@ export async function semearVeiculo(db: Database, tenantId: string) {
 }
 
 /** OS inserida direto no estado desejado (o fluxo de abertura é testado em ordens-abrir). */
-export async function criarOs(db: Database, i: { tenantId: string; veiculoId: string; abertaPor: string; status?: OsStatus; responsavelId?: string | null; prontoEm?: Date }) {
+export async function criarOs(db: Database, i: { tenantId: string; veiculoId: string; abertaPor: string; status?: OsStatus; responsavelId?: string | null; entradaEm?: Date; inicioLavagemEm?: Date; prontoEm?: Date; entregueEm?: Date }) {
   const [{ n }] = (await db.execute(sql`select count(*)::int + 1 as n from ordens_servico where tenant_id = ${i.tenantId}`)).rows as { n: number }[];
   const [os] = await db
     .insert(ordensServico)
@@ -40,7 +40,10 @@ export async function criarOs(db: Database, i: { tenantId: string; veiculoId: st
       status: i.status ?? 'aguardando',
       responsavelId: i.responsavelId ?? null,
       atribuidoEm: i.responsavelId ? new Date() : null,
+      ...(i.entradaEm && { entradaEm: i.entradaEm }),
+      inicioLavagemEm: i.inicioLavagemEm ?? null,
       prontoEm: i.prontoEm ?? null,
+      entregueEm: i.entregueEm ?? null,
       totalCentavos: 5000,
       subtotalCentavos: 5000,
       tokenPublico: randomBytes(32).toString('base64url'),
