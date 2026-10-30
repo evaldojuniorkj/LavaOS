@@ -1,9 +1,10 @@
 import 'server-only';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, max, sql } from 'drizzle-orm';
 import type { TenantContext } from '@/lib/auth/types';
 import { getDatabase } from '@/lib/db/client';
 import { clientes, membros, ordensServico, osItens, precos, servicos, veiculos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
+import { sugerirLavadorLivre } from './ordens.rules';
 import type { OsCompleta } from './ordens.views';
 
 /** Database ou transação: só leitura. */
@@ -33,12 +34,33 @@ export function servicosComPreco(ctx: TenantContext, ids: string[], porteId: str
     .where(and(eq(servicos.tenantId, ctx.tenantId), eq(servicos.ativo, true), inArray(servicos.id, ids)));
 }
 
+/** FOR SHARE: dentro de uma transação, uma desativação concorrente espera o commit em vez de passar despercebida. */
 export async function lavadorAtivo(ctx: TenantContext, id: string, db: Leitor = getDatabase()): Promise<boolean> {
   const [m] = await db
     .select({ id: membros.id })
     .from(membros)
-    .where(and(eq(membros.tenantId, ctx.tenantId), eq(membros.id, id), eq(membros.perfil, 'lavador'), eq(membros.ativo, true)));
+    .where(and(eq(membros.tenantId, ctx.tenantId), eq(membros.id, id), eq(membros.perfil, 'lavador'), eq(membros.ativo, true)))
+    .for('share');
   return !!m;
+}
+
+/** Lavadores ativos: livre = nenhuma OS em lavagem; sugerido = o livre há mais tempo (só orientação). */
+export async function listarLavadoresParaDirecionar(ctx: TenantContext, db: Leitor = getDatabase()) {
+  const rows = await db
+    .select({
+      membroId: membros.id,
+      nome: membros.nomeExibicao,
+      cadastroEm: membros.createdAt,
+      emLavagem: sql<number>`count(*) filter (where ${ordensServico.status} = 'em_lavagem')`.mapWith(Number),
+      ultimoPronto: max(ordensServico.prontoEm),
+    })
+    .from(membros)
+    .leftJoin(ordensServico, and(eq(ordensServico.tenantId, membros.tenantId), eq(ordensServico.responsavelId, membros.id)))
+    .where(and(eq(membros.tenantId, ctx.tenantId), eq(membros.perfil, 'lavador'), eq(membros.ativo, true)))
+    .groupBy(membros.id)
+    .orderBy(asc(membros.nomeExibicao));
+  const sugerido = sugerirLavadorLivre(rows.map((r) => ({ membroId: r.membroId, emLavagem: r.emLavagem, livreDesde: r.ultimoPronto ?? r.cadastroEm })));
+  return rows.map((r) => ({ membroId: r.membroId, nome: r.nome, livre: r.emLavagem === 0, sugerido: r.membroId === sugerido }));
 }
 
 export async function carregarOs(ctx: TenantContext, id: string, db: Leitor = getDatabase()): Promise<OsCompleta | null> {

@@ -1,21 +1,21 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { z } from 'zod';
-import { assertPermission, can } from '@/lib/auth/permissions';
+import { AcessoNegadoError, assertPermission, can } from '@/lib/auth/permissions';
 import type { TenantContext } from '@/lib/auth/types';
 import { getDatabase } from '@/lib/db/client';
 import { ordensServico, osContadores, osEventos, osItens } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { buscarVeiculo, carregarOs, lavadorAtivo, servicosComPreco } from './ordens.repo';
-import { calcularTotais, validarSelecaoServicos } from './ordens.rules';
+import { calcularTotais, decidirTransicao, validarSelecaoServicos, type StatusOs } from './ordens.rules';
 import type { abrirOsSchema } from './ordens.schemas';
 import { toOsView, type OsView } from './ordens.views';
 
 /** Recusa de regra com mensagem segura para a tela; `fieldErrors` aponta o campo. */
 export class OrdensError extends Error {
   constructor(
-    readonly code: 'VALIDACAO',
+    readonly code: 'VALIDACAO' | 'NAO_ENCONTRADO' | 'OS_ENCERRADA' | 'TRANSICAO_INVALIDA' | 'SEM_RESPONSAVEL' | 'NAO_E_RESPONSAVEL',
     message: string,
     readonly fieldErrors?: Record<string, string[]>,
   ) {
@@ -24,6 +24,15 @@ export class OrdensError extends Error {
   }
 }
 const erroCampo = (campo: string, msg: string) => new OrdensError('VALIDACAO', 'Dados inválidos.', { [campo]: [msg] });
+
+/** O estado da OS mudou entre a tela e o clique: a tela recarrega. */
+export class ConflitoOsError extends Error {
+  readonly code = 'CONFLITO_OS';
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConflitoOsError';
+  }
+}
 
 /**
  * Uma transação: valida veículo, serviços (preço do banco no porte do veículo) e responsável, depois
@@ -80,5 +89,123 @@ export async function abrirOs(ctx: TenantContext, input: z.output<typeof abrirOs
     );
     await tx.insert(osEventos).values({ tenantId: ctx.tenantId, osId: os.id, tipo: 'status', para: 'aguardando', membroId: ctx.memberId });
     return toOsView(ctx.perfil, (await carregarOs(ctx, os.id, tx))!);
+  });
+}
+
+type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+const ENCERRADOS: StatusOs[] = ['entregue', 'cancelada'];
+const naoEncontrada = () => new OrdensError('NAO_ENCONTRADO', 'OS não encontrada.');
+const encerrada = (status: StatusOs) => new OrdensError('OS_ENCERRADA', `OS ${status} não pode ser alterada.`);
+
+async function emTransacao<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  try {
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`set local lock_timeout = '5s'`);
+      return fn(tx);
+    });
+  } catch (err) {
+    const pg = ((err as { cause?: unknown }).cause ?? err) as { code?: string }; // o Drizzle embrulha o erro do pg em `cause`
+    if (pg.code === '55P03') throw new ConflitoOsError('Essa OS está sendo alterada. Tente novamente.');
+    throw err;
+  }
+}
+
+/** Linha da OS travada até o commit: as regras decidem sobre o estado do banco, não o da tela. */
+async function travarOs(tx: Tx, ctx: TenantContext, id: string) {
+  const [os] = await tx
+    .select({ id: ordensServico.id, status: ordensServico.status, responsavelId: ordensServico.responsavelId })
+    .from(ordensServico)
+    .where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, id)))
+    .for('update');
+  if (!os) throw naoEncontrada(); // inclui OS de outro tenant: nada é revelado
+  return os;
+}
+
+const view = async (tx: Tx, ctx: TenantContext, id: string) => toOsView(ctx.perfil, (await carregarOs(ctx, id, tx))!);
+
+async function conflito(tx: Tx, ctx: TenantContext, id: string) {
+  const os = (await carregarOs(ctx, id, tx))!;
+  const outro = os.status === 'em_lavagem' && os.responsavel && os.responsavel.id !== ctx.memberId ? os.responsavel : null;
+  return new ConflitoOsError(outro ? `Essa OS já foi pega por ${outro.nomeExibicao}` : 'Essa OS mudou de status');
+}
+
+/**
+ * Uma transação: trava a OS, decide com `decidirTransicao` sobre o estado travado e grava status,
+ * responsável e `os_eventos` juntos. `esperado` diferente do banco ⇒ ConflitoOsError.
+ */
+export async function transitarOs(
+  ctx: TenantContext,
+  i: { osId: string; esperado: StatusOs; para: StatusOs; responsavelId?: string; motivo?: string },
+  db: Database = getDatabase(),
+): Promise<OsView> {
+  assertPermission(ctx, 'os:avancar'); // a permissão exata vem de decidirTransicao
+  return emTransacao(db, async (tx) => {
+    const os = await travarOs(tx, ctx, i.osId);
+    const inicio = i.esperado === 'aguardando' && i.para === 'em_lavagem';
+    const explicito = inicio && i.responsavelId !== undefined;
+    if (os.status !== i.esperado) {
+      // "Pegar" repetido (duplo toque) por quem já é o responsável: sucesso sem novo evento
+      if (inicio && !explicito && os.status === 'em_lavagem' && os.responsavelId === ctx.memberId) return view(tx, ctx, os.id);
+      throw await conflito(tx, ctx, os.id);
+    }
+    const d = decidirTransicao({
+      de: os.status,
+      para: i.para,
+      perfil: ctx.perfil,
+      temResponsavel: explicito || os.responsavelId !== null, // o indicado é validado logo abaixo
+      ehResponsavel: os.responsavelId === ctx.memberId,
+      responsavelExplicito: explicito,
+      motivo: i.motivo,
+    });
+    if (!d.ok) {
+      if (d.erro === 'transicao_invalida') throw ENCERRADOS.includes(os.status) ? encerrada(os.status) : new OrdensError('TRANSICAO_INVALIDA', 'Essa mudança de status não é permitida.');
+      if (d.erro === 'sem_permissao') {
+        console.warn('[auth] acesso negado', { transicao: `${os.status}->${i.para}`, tenantId: ctx.tenantId, memberId: ctx.memberId, perfil: ctx.perfil });
+        throw new AcessoNegadoError();
+      }
+      if (d.erro === 'motivo_obrigatorio') throw erroCampo('motivo', 'Informe o motivo.');
+      if (d.erro === 'sem_responsavel') throw new OrdensError('SEM_RESPONSAVEL', 'Defina o responsável antes.');
+      throw new OrdensError('NAO_E_RESPONSAVEL', 'Essa OS é de outro responsável.');
+    }
+    if (i.responsavelId !== undefined && !inicio) throw erroCampo('responsavelId', 'O responsável só é escolhido ao iniciar a lavagem.');
+    if (explicito && !(await lavadorAtivo(ctx, i.responsavelId!, tx))) throw erroCampo('responsavelId', 'Escolha um lavador ativo.');
+
+    const responsavelId = d.limpaResponsavel ? null : explicito ? i.responsavelId! : inicio ? (os.responsavelId ?? ctx.memberId) : os.responsavelId;
+    const agora = sql`now()`;
+    const [ok] = await tx
+      .update(ordensServico)
+      .set({
+        status: i.para,
+        ...(responsavelId !== os.responsavelId && { responsavelId, atribuidoEm: responsavelId ? agora : null }),
+        ...(inicio && { inicioLavagemEm: sql`coalesce(${ordensServico.inicioLavagemEm}, now())` }),
+        ...(i.para === 'pronto' && { prontoEm: agora }),
+        ...(i.para === 'entregue' && { entregueEm: agora }),
+        ...(i.para === 'cancelada' && { canceladaEm: agora, motivoCancelamento: i.motivo }),
+      })
+      .where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, os.id), eq(ordensServico.status, i.esperado)))
+      .returning({ id: ordensServico.id });
+    if (!ok) throw await conflito(tx, ctx, os.id);
+    await tx.insert(osEventos).values([
+      { tenantId: ctx.tenantId, osId: os.id, tipo: 'status', de: os.status, para: i.para, membroId: ctx.memberId, motivo: i.motivo || null },
+      ...(responsavelId !== os.responsavelId ? [{ tenantId: ctx.tenantId, osId: os.id, tipo: 'responsavel' as const, de: os.responsavelId, para: responsavelId, membroId: ctx.memberId }] : []),
+    ]);
+    return view(tx, ctx, os.id);
+  });
+}
+
+/** Direciona ou corrige o responsável (null remove) enquanto a OS está ativa; lavador ocupado também pode receber. */
+export async function atribuirResponsavel(ctx: TenantContext, i: { osId: string; membroId: string | null }, db: Database = getDatabase()): Promise<OsView> {
+  assertPermission(ctx, 'os:atribuir');
+  return emTransacao(db, async (tx) => {
+    const os = await travarOs(tx, ctx, i.osId);
+    if (ENCERRADOS.includes(os.status)) throw encerrada(os.status);
+    if (i.membroId === os.responsavelId) return view(tx, ctx, os.id);
+    if (i.membroId && !(await lavadorAtivo(ctx, i.membroId, tx))) throw erroCampo('membroId', 'Escolha um lavador ativo.');
+    await tx
+      .update(ordensServico)
+      .set({ responsavelId: i.membroId, atribuidoEm: i.membroId ? sql`now()` : null })
+      .where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, os.id)));
+    await tx.insert(osEventos).values({ tenantId: ctx.tenantId, osId: os.id, tipo: 'responsavel', de: os.responsavelId, para: i.membroId, membroId: ctx.memberId });
+    return view(tx, ctx, os.id);
   });
 }
