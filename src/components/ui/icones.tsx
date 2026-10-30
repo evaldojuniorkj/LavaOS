@@ -35,3 +35,11 @@ export const IconeCatalogo = () => (
     <circle cx="8" cy="8" r="1.2" />
   </svg>
 );
+export const IconePainel = () => (
+  <svg {...base}>
+    <rect x="3.5" y="3.5" width="7" height="7" rx="2" />
+    <rect x="13.5" y="3.5" width="7" height="7" rx="2" />
+    <rect x="3.5" y="13.5" width="7" height="7" rx="2" />
+    <rect x="13.5" y="13.5" width="7" height="7" rx="2" />
+  </svg>
+);

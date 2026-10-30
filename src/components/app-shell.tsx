@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { IconeCatalogo, IconeClientes, IconeEquipe, IconeFila, IconeNova } from '@/components/ui/icones';
+import { IconeCatalogo, IconeClientes, IconeEquipe, IconeFila, IconeNova, IconePainel } from '@/components/ui/icones';
 import { authClient } from '@/lib/auth/client';
 import type { Perfil } from '@/lib/auth/types';
 import { cn } from '@/lib/utils';
@@ -14,11 +14,12 @@ export const PERFIL_ROTULO: Record<Perfil, string> = { dono: 'Dono', gerente: 'G
  * Celular: barra de abas embaixo (polegar) e barra de título em cima. A partir de `lg`: menu lateral (§6 da spec).
  * Uma só `<nav>` muda de lugar por CSS, então os links não se duplicam. Só mostra telas existentes e por permissão; é conveniência, a regra é do servidor.
  */
-export function AppShell({ nome, perfil, podeFila, podeAbrirOs, podeEquipe, podeCatalogo, podeClientes, children }: { nome: string; perfil: Perfil; podeFila: boolean; podeAbrirOs: boolean; podeEquipe: boolean; podeCatalogo: boolean; podeClientes: boolean; children: React.ReactNode }) {
+export function AppShell({ nome, perfil, podePainel, podeFila, podeAbrirOs, podeEquipe, podeCatalogo, podeClientes, children }: { nome: string; perfil: Perfil; podePainel: boolean; podeFila: boolean; podeAbrirOs: boolean; podeEquipe: boolean; podeCatalogo: boolean; podeClientes: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [saindo, setSaindo] = useState(false);
   const itens = [
+    ...(podePainel ? [{ href: '/painel', rotulo: 'Painel', icone: <IconePainel /> }] : []),
     ...(podeFila ? [{ href: '/fila', rotulo: 'Fila', icone: <IconeFila /> }] : []),
     ...(podeAbrirOs ? [{ href: '/nova-os', rotulo: 'Nova OS', icone: <IconeNova /> }] : []),
     ...(podeClientes ? [{ href: '/clientes', rotulo: 'Clientes', icone: <IconeClientes /> }] : []),
@@ -84,13 +85,13 @@ export function AppShell({ nome, perfil, podeFila, podeAbrirOs, podeEquipe, pode
                 href={i.href}
                 aria-current={pathname === i.href ? 'page' : undefined}
                 className={cn(
-                  'group flex min-h-16 flex-col items-center justify-center gap-0.5 px-1 text-xs font-semibold text-suave transition active:scale-95',
+                  'group flex min-h-16 flex-col items-center justify-center gap-0.5 px-0.5 text-[11px] font-semibold sm:text-xs text-suave transition active:scale-95',
                   'aria-[current=page]:text-agua',
                   'lg:min-h-12 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-3 lg:text-base lg:font-semibold lg:text-white/75 lg:hover:bg-white/10 lg:active:scale-100',
                   'lg:aria-[current=page]:bg-white/15 lg:aria-[current=page]:text-white',
                 )}
               >
-                <span className="rounded-full px-5 py-1 transition-colors group-aria-[current=page]:bg-agua/15 lg:p-0 lg:group-aria-[current=page]:bg-transparent">{i.icone}</span>
+                <span className="rounded-full px-4 py-1 transition-colors group-aria-[current=page]:bg-agua/15 lg:p-0 lg:group-aria-[current=page]:bg-transparent">{i.icone}</span>
                 {i.rotulo}
               </Link>
             </li>
