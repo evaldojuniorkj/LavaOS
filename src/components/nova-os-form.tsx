@@ -112,7 +112,6 @@ export function NovaOsForm({ portes, servicos, lavadores, titulo = 'Nova OS', de
             erro={erros.placa?.[0]}
             autoComplete="off"
             autoCapitalize="characters"
-            inputMode="text"
             className="font-mono text-lg uppercase tracking-wider"
           />
         </div>

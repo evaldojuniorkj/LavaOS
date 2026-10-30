@@ -12,6 +12,7 @@ export const metadata = { title: 'Fila | LavaOS' };
 export default async function FilaPage() {
   const ctx = await contextoOuNull(await headers());
   if (!ctx) redirect('/login?motivo=sessao');
+  if (ctx.perfil === 'lavador') redirect('/lavador'); // na página também: o layout renderiza em paralelo e não segura a saída da página
   if (!can(ctx.perfil, 'fila:ver')) {
     return (
       <section>

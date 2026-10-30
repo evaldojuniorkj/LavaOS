@@ -12,6 +12,8 @@ const um = async <T = Record<string, string>>(sql: string, params: unknown[] = [
 const PLACA_EXISTENTE = 'EXS1A23';
 // nada disso pode chegar ao lavador: valores, telefone do cliente da fixture, comissão e token público
 const PROIBIDOS = ['R$', 'Centavos', 'telefone', '988887777', 'comissao', 'token'];
+// campos só da visão de gestão da OS (a busca por placa devolve `clienteId` do veículo, então valem só nas telas do balcão)
+const CAMPOS_GESTAO = ['lavaJato', 'clienteId', 'urlAcompanhar'];
 
 // placas só deste spec; ao fim toda OS criada aqui é encerrada (lavadores voltam a ficar livres para os outros specs)
 const criadas: string[] = [];
@@ -177,6 +179,42 @@ test('nenhum R$, telefone, token ou comissão no texto, no HTML, no RSC, nas act
     expect(sse, `SSE: ${p}`).not.toContain(p);
     for (const c of corpos) expect(c, `${c.split('\n')[0]}: ${p}`).not.toContain(p);
   }
+});
+
+/** GET sem seguir redirect; só o salto de cache-busting do RSC (`?_rsc`) do próprio Next é seguido, para ler a resposta real. */
+async function semSeguir(page: Page, rota: string, headers: Record<string, string>) {
+  const r = await page.request.get(rota, { headers, maxRedirects: 0 });
+  const destino = r.headers().location;
+  return destino?.startsWith(`${rota}?_rsc`) ? page.request.get(destino, { headers, maxRedirects: 0 }) : r;
+}
+
+test('telas do balcão pedidas direto pelo lavador (HTML e RSC, sem seguir redirect) não trazem nenhum valor', async ({ page, browser }) => {
+  await semear('aguardando', null); // a fila tem ao menos uma OS com valores
+  const rec = await novoContexto(browser);
+  await entrarStaff(rec, 'recepcao@e2e.test');
+  await expect(rec).toHaveURL('/fila');
+  await entrar(page);
+  for (const rota of ['/fila', '/nova-os']) {
+    for (const headers of [{}, { RSC: '1' }] as Record<string, string>[]) {
+      // controle: a mesma leitura na sessão da recepção encontra valores, então a varredura sabe falhar
+      const doBalcao = await (await semSeguir(rec, rota, headers)).text();
+      expect([...PROIBIDOS, ...CAMPOS_GESTAO].filter((p) => doBalcao.includes(p)), `${rota} ${JSON.stringify(headers)} recepção`).not.toEqual([]);
+
+      const r = await semSeguir(page, rota, headers);
+      const corpo = await r.text();
+      // HTML: 307 para /lavador. RSC: 200 só com a instrução de redirect no payload (NEXT_REDIRECT para /lavador)
+      if (headers.RSC) {
+        expect(r.status(), rota).toBe(200);
+        expect(corpo, rota).toMatch(/NEXT_REDIRECT;replace;\/lavador;/);
+      } else {
+        expect(r.status(), rota).toBe(307);
+        expect(r.headers().location, rota).toBe('/lavador');
+      }
+      expect(corpo, `${rota} ${JSON.stringify(headers)}: dados da página`).not.toContain('Lavagem completa'); // a página nem chega a carregar a fila/catálogo
+      for (const p of [...PROIBIDOS, ...CAMPOS_GESTAO]) expect(corpo, `${rota} ${JSON.stringify(headers)}: ${p}`).not.toContain(p);
+    }
+  }
+  await rec.context().close();
 });
 
 test('Nova lavagem: placa nova → porte → serviços → criar; fica aguardando com ele até Iniciar lavagem e Pronto', async ({ page }) => {

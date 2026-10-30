@@ -12,6 +12,7 @@ export const metadata = { title: 'Nova OS | LavaOS' };
 export default async function NovaOsPage() {
   const ctx = await contextoOuNull(await headers());
   if (!ctx) redirect('/login?motivo=sessao');
+  if (ctx.perfil === 'lavador') redirect('/lavador'); // na página também: o layout renderiza em paralelo e não segura a saída da página
   if (!can(ctx.perfil, 'os:abrir')) {
     return (
       <section>
