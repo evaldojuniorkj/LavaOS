@@ -1,6 +1,9 @@
 import { can } from '@/lib/auth/permissions';
 import type { Perfil, Permissao } from '@/lib/auth/types';
 
+/** Erros após os quais a UI deve recarregar a fila (a OS mudou sob os pés do usuário). */
+export const ERROS_RECARREGAR_FILA = ['CONFLITO_OS', 'NAO_E_RESPONSAVEL', 'OS_ENCERRADA'] as const;
+
 export type StatusOs = 'aguardando' | 'em_lavagem' | 'pronto' | 'entregue' | 'cancelada';
 
 /** Total = subtotal − desconto + acréscimo, em centavos inteiros, nunca negativo. */

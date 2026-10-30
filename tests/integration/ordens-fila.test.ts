@@ -5,7 +5,7 @@ import { ordensServico, osItens, servicos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { listarFilaAction, obterOsAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
 import { listarFila } from '@/modules/ordens/ordens.repo';
-import { ERROS_RECARREGAR_FILA } from '@/modules/ordens/ordens.service';
+import { ERROS_RECARREGAR_FILA } from '@/modules/ordens/ordens.rules';
 import { createAuthFixtures, type AuthFixtures } from '../helpers/auth';
 import { withTestDatabase } from '../helpers/db';
 import { criarOs, semearVeiculo, sessaoLavador, sessaoStaff } from '../helpers/ordens';
@@ -83,6 +83,15 @@ describe('leitura da fila', () => {
       await os();
       await os();
       expect(await consultas()).toBe(tres);
+    }));
+
+  it('empate em entrada_em desempata por id', () =>
+    run(async ({ db, f, os }) => {
+      const mesma = new Date(Date.UTC(2026, 0, 1, 12));
+      const oss = [await os(), await os(), await os()];
+      for (const o of oss) await db.update(ordensServico).set({ entradaEm: mesma }).where(eq(ordensServico.id, o.id));
+      await como(f, f.a.membros.recepcao.userId);
+      expect(dados<{ id: string }[]>(await listarFilaAction()).map((o) => o.id)).toEqual(oss.map((o) => o.id).sort());
     }));
 
   it('isolamento de tenant: fila e obterOs', () =>
