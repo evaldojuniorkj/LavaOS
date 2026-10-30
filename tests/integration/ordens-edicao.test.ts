@@ -3,6 +3,8 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import { getDatabase } from '@/lib/db/client';
 import { ordensServico, osEventos, osItens, precos, servicos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
+import { toOsView } from '@/modules/ordens/ordens.views';
+import { carregarOs } from '@/modules/ordens/ordens.repo';
 import { ajustarValorAction, editarItensAction } from '@/modules/ordens/ordens.actions';
 import { createAuthFixtures, type AuthFixtures } from '../helpers/auth';
 import { withTestDatabase } from '../helpers/db';
@@ -33,6 +35,7 @@ const run = (fn: (c: { db: Database; f: AuthFixtures; osId: string; lavagem: str
 const como = async (f: AuthFixtures, userId: string) => void (req.headers = await sessaoStaff(f, userId));
 const linha = async (db: Database, id: string) => (await db.select().from(ordensServico).where(eq(ordensServico.id, id)))[0];
 const itens = (db: Database, osId: string) => db.select({ id: osItens.id, nome: osItens.nomeServico, valor: osItens.valorCentavos }).from(osItens).where(eq(osItens.osId, osId)).orderBy(asc(osItens.nomeServico));
+const eventosCompletos = (db: Database, osId: string) => db.select({ tipo: osEventos.tipo, de: osEventos.de, para: osEventos.para }).from(osEventos).where(eq(osEventos.osId, osId)).orderBy(asc(osEventos.em));
 const eventos = (db: Database, osId: string) => db.select({ tipo: osEventos.tipo }).from(osEventos).where(eq(osEventos.osId, osId));
 async function negado<T>(fn: () => Promise<T>) {
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -143,4 +146,28 @@ describe('edição de OS', () => {
       await como(f, f.a.membros.recepcao.userId);
       expect(await editarItensAction({ osId, adicionar: [polimento], remover: [itemId] })).toMatchObject({ ok: true, data: { totalCentavos: 8000, itens: [{ nome: 'Polimento' }] } });
     }, 'pronto'));
+
+  it('eventos permitem reconstruir itens removidos/adicionados e valor antes/depois; lavador não vê isso', () =>
+    run(async ({ db, f, osId, polimento, itemId }) => {
+      await como(f, f.a.membros.gerente.userId);
+      await editarItensAction({ osId, adicionar: [polimento], remover: [itemId] });
+      await ajustarValorAction({ osId, descontoCentavos: 300, acrescimoCentavos: 0 });
+      const [ev1, ev2] = await eventosCompletos(db, osId);
+      expect(JSON.parse(ev1.de!)).toEqual([{ nome: 'Lavagem', valorCentavos: 5000, comissaoTipo: 'percentual', comissaoValor: 3000 }]);
+      expect(JSON.parse(ev1.para!)).toEqual([{ nome: 'Polimento', valorCentavos: 8000 }]);
+      expect(JSON.parse(ev2.de!)).toEqual({ descontoCentavos: 0, acrescimoCentavos: 0, totalCentavos: 8000 });
+      expect(JSON.parse(ev2.para!)).toEqual({ descontoCentavos: 300, acrescimoCentavos: 0, totalCentavos: 7700 });
+      const v = JSON.stringify(toOsView('lavador', (await carregarOs({ tenantId: f.a.tenantId } as never, osId, db))!));
+      expect(v).not.toMatch(/comissao|centavos|"de"|"para"/i);
+    }));
+
+  it('desconto e acréscimo acima do teto são recusados antes do banco; o teto é aceito', () =>
+    run(async ({ db, f, osId }) => {
+      await como(f, f.a.membros.dono.userId);
+      const teto = 10_000_000;
+      expect(await ajustarValorAction({ osId, descontoCentavos: teto + 1, acrescimoCentavos: 0 })).toMatchObject({ ok: false, code: 'VALIDACAO', fieldErrors: { descontoCentavos: [expect.any(String)] } });
+      expect(await ajustarValorAction({ osId, descontoCentavos: 0, acrescimoCentavos: teto + 1 })).toMatchObject({ ok: false, code: 'VALIDACAO', fieldErrors: { acrescimoCentavos: [expect.any(String)] } });
+      expect(await linha(db, osId)).toMatchObject({ descontoCentavos: 0, acrescimoCentavos: 0 });
+      expect(await ajustarValorAction({ osId, descontoCentavos: teto, acrescimoCentavos: teto })).toMatchObject({ ok: true, data: { totalCentavos: 5000 } });
+    }));
 });

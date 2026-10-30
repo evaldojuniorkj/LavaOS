@@ -17,3 +17,7 @@ export function decimalParaCentesimos(texto: string): number | null {
 export function centesimosParaTexto(valor: number): string {
   return `${Math.floor(valor / 100)},${String(valor % 100).padStart(2, '0')}`;
 }
+
+export const INT4_MAX = 2_147_483_647;
+/** Teto de preço, desconto e acréscimo (R$ 100.000,00): 30 itens somados ainda cabem em int4. */
+export const PRECO_MAXIMO_CENTAVOS = 10_000_000;

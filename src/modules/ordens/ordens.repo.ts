@@ -109,7 +109,7 @@ export async function carregarOs(ctx: TenantContext, id: string, db: Leitor = ge
 /** Itens da OS com o flag `adicional` do serviço de origem (para revalidar a seleção após editar). */
 export function itensDaOs(ctx: TenantContext, osId: string, db: Leitor = getDatabase()) {
   return db
-    .select({ id: osItens.id, servicoId: osItens.servicoId, valorCentavos: osItens.valorCentavos, adicional: servicos.adicional })
+    .select({ id: osItens.id, servicoId: osItens.servicoId, nome: osItens.nomeServico, valorCentavos: osItens.valorCentavos, comissaoTipo: osItens.comissaoTipo, comissaoValor: osItens.comissaoValor, adicional: servicos.adicional })
     .from(osItens)
     .innerJoin(servicos, and(eq(servicos.tenantId, osItens.tenantId), eq(servicos.id, osItens.servicoId)))
     .where(and(eq(osItens.tenantId, ctx.tenantId), eq(osItens.osId, osId)));

@@ -7,6 +7,7 @@ import type { TenantContext } from '@/lib/auth/types';
 import { getDatabase } from '@/lib/db/client';
 import { ordensServico, osContadores, osEventos, osItens } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
+import { INT4_MAX } from '@/modules/catalogo/catalogo.rules';
 import { buscarVeiculo, carregarOs, itensDaOs, lavadorAtivo, servicosComPreco } from './ordens.repo';
 import { calcularTotais, decidirTransicao, validarSelecaoServicos, type StatusOs } from './ordens.rules';
 import type { abrirOsSchema, ajustarValorSchema, editarItensSchema } from './ordens.schemas';
@@ -24,6 +25,13 @@ export class OrdensError extends Error {
   }
 }
 const erroCampo = (campo: string, msg: string) => new OrdensError('VALIDACAO', 'Dados inválidos.', { [campo]: [msg] });
+/** Recusa antes de gravar o que estouraria int4 no banco. */
+const cabeNoBanco = <T extends { subtotalCentavos: number; totalCentavos: number }>(t: T): T => {
+  if (t.subtotalCentavos > INT4_MAX || t.totalCentavos > INT4_MAX) throw erroCampo('valor', 'O valor da OS ultrapassa o limite.');
+  return t;
+};
+// Payloads de os_eventos (itens/valor) contêm dinheiro: qualquer histórico exibido deve ser filtrado por perfil (lavador não vê R$).
+const json = (v: unknown) => JSON.stringify(v);
 
 /** O estado da OS mudou entre a tela e o clique: a tela recarrega. */
 export class ConflitoOsError extends Error {
@@ -58,7 +66,7 @@ export async function abrirOs(ctx: TenantContext, input: z.output<typeof abrirOs
       .values({ tenantId: ctx.tenantId, ultimo: 1 })
       .onConflictDoUpdate({ target: osContadores.tenantId, set: { ultimo: sql`${osContadores.ultimo} + 1` } })
       .returning({ numero: osContadores.ultimo });
-    const totais = calcularTotais({ valoresItens: lista.map((s) => s.valorCentavos), descontoCentavos: 0, acrescimoCentavos: 0 });
+    const totais = cabeNoBanco(calcularTotais({ valoresItens: lista.map((s) => s.valorCentavos), descontoCentavos: 0, acrescimoCentavos: 0 }));
     const [os] = await tx
       .insert(ordensServico)
       .values({
@@ -121,6 +129,7 @@ async function travarOs(tx: Tx, ctx: TenantContext, id: string) {
       subtotalCentavos: ordensServico.subtotalCentavos,
       descontoCentavos: ordensServico.descontoCentavos,
       acrescimoCentavos: ordensServico.acrescimoCentavos,
+      totalCentavos: ordensServico.totalCentavos,
     })
     .from(ordensServico)
     .where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, id)))
@@ -227,6 +236,7 @@ export async function editarItens(ctx: TenantContext, i: z.output<typeof editarI
     const atuais = await itensDaOs(ctx, os.id, tx);
     if (!i.remover.every((id) => atuais.some((a) => a.id === id))) throw erroCampo('remover', 'Item não encontrado nesta OS.');
     const ficam = atuais.filter((a) => !i.remover.includes(a.id));
+    const removidos = atuais.filter((a) => i.remover.includes(a.id)).map((a) => ({ nome: a.nome, valorCentavos: a.valorCentavos, comissaoTipo: a.comissaoTipo, comissaoValor: a.comissaoValor }));
     if (i.adicionar.some((id) => ficam.some((a) => a.servicoId === id))) throw erroCampo('adicionar', 'Serviço já está na OS.');
     const veiculo = (await buscarVeiculo(ctx, os.veiculoId, tx))!;
     const novos = i.adicionar.length ? await servicosComPreco(ctx, i.adicionar, veiculo.porteId, tx) : [];
@@ -239,9 +249,9 @@ export async function editarItens(ctx: TenantContext, i: z.output<typeof editarI
         novos.map((s) => ({ tenantId: ctx.tenantId, osId: os.id, servicoId: s.id, porteId: veiculo.porteId, nomeServico: s.nome, valorCentavos: s.valorCentavos, comissaoTipo: s.comissaoTipo, comissaoValor: s.comissaoValor })),
       );
     }
-    const totais = calcularTotais({ valoresItens: [...ficam.map((a) => a.valorCentavos), ...novos.map((s) => s.valorCentavos)], descontoCentavos: os.descontoCentavos, acrescimoCentavos: os.acrescimoCentavos });
+    const totais = cabeNoBanco(calcularTotais({ valoresItens: [...ficam.map((a) => a.valorCentavos), ...novos.map((s) => s.valorCentavos)], descontoCentavos: os.descontoCentavos, acrescimoCentavos: os.acrescimoCentavos }));
     await tx.update(ordensServico).set(totais).where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, os.id)));
-    await tx.insert(osEventos).values({ tenantId: ctx.tenantId, osId: os.id, tipo: 'itens', para: `+${novos.length} -${i.remover.length}`, membroId: ctx.memberId });
+    await tx.insert(osEventos).values({ tenantId: ctx.tenantId, osId: os.id, tipo: 'itens', de: removidos.length ? json(removidos) : null, para: novos.length ? json(novos.map((n) => ({ nome: n.nome, valorCentavos: n.valorCentavos }))) : null, membroId: ctx.memberId });
     return view(tx, ctx, os.id);
   });
 }
@@ -252,12 +262,16 @@ export async function ajustarValor(ctx: TenantContext, i: z.output<typeof ajusta
   return emTransacao(db, async (tx) => {
     const os = await travarOs(tx, ctx, i.osId);
     if (ENCERRADOS.includes(os.status)) throw encerrada(os.status);
-    const totais = calcularTotais({ valoresItens: [os.subtotalCentavos], descontoCentavos: i.descontoCentavos, acrescimoCentavos: i.acrescimoCentavos });
+    const totais = cabeNoBanco(calcularTotais({ valoresItens: [os.subtotalCentavos], descontoCentavos: i.descontoCentavos, acrescimoCentavos: i.acrescimoCentavos }));
     await tx
       .update(ordensServico)
       .set({ descontoCentavos: i.descontoCentavos, acrescimoCentavos: i.acrescimoCentavos, totalCentavos: totais.totalCentavos })
       .where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, os.id)));
-    await tx.insert(osEventos).values({ tenantId: ctx.tenantId, osId: os.id, tipo: 'valor', membroId: ctx.memberId });
+    await tx.insert(osEventos).values({ tenantId: ctx.tenantId, osId: os.id, tipo: 'valor',
+      de: json({ descontoCentavos: os.descontoCentavos, acrescimoCentavos: os.acrescimoCentavos, totalCentavos: os.totalCentavos }),
+      para: json({ descontoCentavos: i.descontoCentavos, acrescimoCentavos: i.acrescimoCentavos, totalCentavos: totais.totalCentavos }),
+      membroId: ctx.memberId,
+    });
     return view(tx, ctx, os.id);
   });
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PRECO_MAXIMO_CENTAVOS } from '@/modules/catalogo/catalogo.rules';
 import type { StatusOs } from './ordens.rules';
 
 // strict: valores, totais, tenant ou qualquer campo extra são recusados, nunca ignorados. Preço vem só do banco.
@@ -31,5 +32,5 @@ export const editarItensSchema = z
     remover: z.array(z.guid()).max(30).refine(unicos, 'Item repetido.'),
   })
   .refine((v) => v.adicionar.length + v.remover.length > 0, 'Nada a alterar.');
-const centavos = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+const centavos = z.number().int().min(0).max(PRECO_MAXIMO_CENTAVOS, 'Valor acima do máximo de R$ 100.000,00.');
 export const ajustarValorSchema = z.strictObject({ osId: z.guid(), descontoCentavos: centavos, acrescimoCentavos: centavos });

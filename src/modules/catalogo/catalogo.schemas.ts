@@ -1,9 +1,8 @@
 import { z } from 'zod';
-import { validarComissao } from './catalogo.rules';
+import { INT4_MAX as INT4, PRECO_MAXIMO_CENTAVOS, validarComissao } from './catalogo.rules';
 
 const id = z.guid();
 const nome = z.string().trim().min(1, 'Informe o nome.').max(80);
-const INT4 = 2_147_483_647;
 
 // strict: tenant_id ou qualquer campo extra é recusado, nunca ignorado.
 export const salvarPorteSchema = z.strictObject({ id: id.optional(), nome, ordem: z.number().int().min(0).max(9999).optional(), ativo: z.boolean().optional() });
@@ -21,4 +20,4 @@ export const salvarServicoSchema = z
   })
   .refine((s) => validarComissao(s.comissaoTipo, s.comissaoValor), { path: ['comissaoValor'], message: 'Comissão inválida.' });
 
-export const definirPrecoSchema = z.strictObject({ servicoId: id, porteId: id, valorCentavos: z.number().int('Informe um valor inteiro em centavos.').min(0, 'O valor não pode ser negativo.').max(INT4) });
+export const definirPrecoSchema = z.strictObject({ servicoId: id, porteId: id, valorCentavos: z.number().int('Informe um valor inteiro em centavos.').min(0, 'O valor não pode ser negativo.').max(PRECO_MAXIMO_CENTAVOS, 'Valor acima do máximo de R$ 100.000,00.') });

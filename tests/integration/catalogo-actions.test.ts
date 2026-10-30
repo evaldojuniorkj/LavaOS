@@ -80,11 +80,12 @@ describe('catalogo.actions', () => {
       const s = await salvarServicoAction(servico);
       if (!p.ok || !s.ok) throw new Error('falhou');
       const antes = await contagem(db);
-      for (const valorCentavos of [12.5, -1, '10', Number.NaN, 2 ** 31]) {
+      for (const valorCentavos of [12.5, -1, '10', Number.NaN, 2 ** 31, 10_000_001]) {
         const r = await definirPrecoAction({ servicoId: s.data.id, porteId: p.data.id, valorCentavos });
         expect(r).toMatchObject({ ok: false, code: 'VALIDACAO' });
       }
       expect(await contagem(db)).toBe(antes);
+      expect(await definirPrecoAction({ servicoId: s.data.id, porteId: p.data.id, valorCentavos: 10_000_000 })).toMatchObject({ ok: true });
     }));
 
   it('serviço sem comissão é rejeitado; percentual 10001 e fixo negativo também', () =>
