@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { getDatabase } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { getServerEnv } from '@/lib/env';
+import { IP_ADDRESS } from './ip';
 import { lavadorPinPlugin, type PinPluginDeps } from './pin.plugin';
 import { isAuthHttpPathAllowed } from './route-policy';
 
@@ -41,10 +42,8 @@ export function createAuth(pin: PinPluginDeps = {}) {
     rateLimit: { enabled: env.LAVAOS_MODE === 'production', storage: 'memory' },
     advanced: {
       database: { generateId: 'uuid' },
-      // IP do cliente (limite PIN por origem e rate limit) só de X-Real-IP. Exige do proxy reverso: sobrescrever X-Real-IP
-      // com o endereço do socket (nginx: proxy_set_header X-Real-IP $remote_addr) e o app ouvir só nele (loopback).
-      // X-Forwarded-For não é lido: o cliente pode forjá-lo. Sem o header, produção fica sem IP (cota compartilhada).
-      ipAddress: { ipAddressHeaders: ['x-real-ip'] },
+      // só X-Real-IP (ver src/lib/auth/ip.ts); o link público usa a mesma extração
+      ipAddress: IP_ADDRESS,
       // explícito: o padrão do Better Auth desliga a checagem de origem quando NODE_ENV=test
       disableOriginCheck: false,
       useSecureCookies: env.LAVAOS_MODE === 'production' || env.BETTER_AUTH_URL.startsWith('https:'),
