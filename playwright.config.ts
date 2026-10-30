@@ -8,7 +8,7 @@ const BASE = `http://localhost:${PORT}`;
 // Mesma fonte do global-setup (que zera e popula): servidor e fixtures nunca apontam para bancos diferentes.
 const TEST_DB = testUrls.app;
 assertTestDb(TEST_DB);
-// `pnpm verify:foundation` acabou de rodar `pnpm build` e reaproveita; `pnpm test:e2e` sozinho sempre compila de novo.
+// `pnpm verify:operacao` acabou de rodar `pnpm build` e reaproveita; `pnpm test:e2e` sozinho sempre compila de novo.
 const LAVADOR = /operacao-lavador\.spec\.ts$/;
 const ONBOARDING = /operacao-primeiro-acesso\.spec\.ts$/;
 const ONBOARDING_BASE = `http://localhost:${E2E_ONBOARDING.port}`;
