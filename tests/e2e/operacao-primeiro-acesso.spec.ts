@@ -57,7 +57,7 @@ test('assistente cria o lava jato e o dono, que entra pelo login; e o link do as
   await page.getByLabel('E-mail', { exact: true }).fill(email);
   await page.getByLabel('Senha', { exact: true }).fill(senha);
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page).toHaveURL('/fila');
+  await expect(page).toHaveURL('/painel'); // o dono começa no painel
 });
 
 test('com lava jato cadastrado, /primeiro-acesso redireciona ao login e o link não aparece', async ({ page }) => {

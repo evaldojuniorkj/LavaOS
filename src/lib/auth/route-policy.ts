@@ -23,7 +23,7 @@ export function isAuthHttpPathAllowed(method: string, path: string): boolean {
  */
 
 /** Telas internas existentes; o retorno pós-login só aceita uma delas, por igualdade exata. */
-export const ROTAS_INTERNAS: readonly string[] = ['/inicio', '/fila', '/nova-os', '/clientes', '/configuracoes/equipe', '/configuracoes/catalogo', '/lavador', '/lavador/nova'];
+export const ROTAS_INTERNAS: readonly string[] = ['/inicio', '/painel', '/fila', '/nova-os', '/clientes', '/configuracoes/equipe', '/configuracoes/catalogo', '/lavador', '/lavador/nova'];
 
 export function destinoPosLogin(next: unknown): string {
   return typeof next === 'string' && ROTAS_INTERNAS.includes(next) ? next : '/inicio';

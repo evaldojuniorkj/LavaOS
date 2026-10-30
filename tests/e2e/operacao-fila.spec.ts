@@ -19,7 +19,8 @@ function placaNova() {
 /** Entra e espera chegar à fila (início = /fila) antes de navegar. */
 async function entrar(page: Page, email: string) {
   await entrarStaff(page, email);
-  await expect(page).toHaveURL('/fila');
+  await expect(page).toHaveURL(/\/(fila|painel)$/); // dono e gerente começam no painel, recepção na fila
+  await page.goto('/fila');
 }
 
 const coluna = (page: Page, nome: 'Aguardando' | 'Em lavagem' | 'Pronto') => page.getByRole('region', { name: nome });
