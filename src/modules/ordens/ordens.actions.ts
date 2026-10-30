@@ -7,8 +7,8 @@ import { AcessoNegadoError } from '@/lib/auth/permissions';
 import type { Permissao, TenantContext } from '@/lib/auth/types';
 import type { ActionResult } from '@/modules/catalogo/catalogo.actions';
 import { listarLavadoresParaDirecionar } from './ordens.repo';
-import { abrirOsSchema, atribuirResponsavelSchema, transitarOsSchema } from './ordens.schemas';
-import { abrirOs, atribuirResponsavel, ConflitoOsError, OrdensError, transitarOs } from './ordens.service';
+import { abrirOsSchema, ajustarValorSchema, atribuirResponsavelSchema, editarItensSchema, transitarOsSchema } from './ordens.schemas';
+import { abrirOs, ajustarValor, atribuirResponsavel, ConflitoOsError, editarItens, OrdensError, transitarOs } from './ordens.service';
 import type { OsView } from './ordens.views';
 
 /** Permissão, validação estrita e serviço; a resposta ao lavador já sai sem valores (toOsView). */
@@ -40,6 +40,14 @@ export async function transitarOsAction(input: unknown): Promise<ActionResult<Os
 
 export async function atribuirResponsavelAction(input: unknown): Promise<ActionResult<OsView>> {
   return executar('os:atribuir', atribuirResponsavelSchema, input, atribuirResponsavel);
+}
+
+export async function editarItensAction(input: unknown): Promise<ActionResult<OsView>> {
+  return executar('os:corrigir', editarItensSchema, input, editarItens);
+}
+
+export async function ajustarValorAction(input: unknown): Promise<ActionResult<OsView>> {
+  return executar('os:ajustar_valor', ajustarValorSchema, input, ajustarValor);
 }
 
 export async function listarLavadoresAction(): Promise<ActionResult<Awaited<ReturnType<typeof listarLavadoresParaDirecionar>>>> {
