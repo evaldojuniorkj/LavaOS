@@ -51,6 +51,9 @@ export function AppShell({ nome, perfil, podePainel, podeFila, podeAbrirOs, pode
 
   return (
     <div className="min-h-dvh bg-enxague lg:pl-64">
+      <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-3 focus:font-semibold focus:text-tinta focus:shadow-lg">
+        Pular para o conteúdo
+      </a>
       <header className="sticky top-0 z-20 bg-tinta pt-[env(safe-area-inset-top)] text-white lg:hidden">
         <div className="flex min-h-14 items-center gap-3 px-4">
           {marca}
@@ -99,7 +102,7 @@ export function AppShell({ nome, perfil, podePainel, podeFila, podeAbrirOs, pode
         </ul>
       </nav>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:px-8 lg:py-8 lg:pb-8">{children}</main>
+      <main id="conteudo" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-6 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:px-8 lg:py-8 lg:pb-8">{children}</main>
     </div>
   );
 }

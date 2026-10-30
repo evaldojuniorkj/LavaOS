@@ -78,7 +78,7 @@ export function PainelView({ inicial }: { inicial: Painel }) {
             <ul className="mt-3 space-y-2">
               {painel.atrasadas.map((o) => (
                 <li key={o.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-2xl bg-enxague px-4 py-3">
-                  <span className="flex items-center gap-3">
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                     <span className="font-bold text-tinta">OS {o.numero}</span>
                     <Placa valor={o.placa} />
                   </span>

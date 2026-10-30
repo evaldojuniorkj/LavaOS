@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Placa } from '@/components/ui/placa';
 import { cn } from '@/lib/utils';
 import { centesimosParaTexto } from '@/modules/catalogo/catalogo.rules';
 import { buscarOsPublica, type OsPublica } from '@/modules/ordens/publico.repo';
@@ -36,22 +37,6 @@ function Indisponivel() {
   );
 }
 
-/** Placa no desenho Mercosul: o elemento que o cliente reconhece de longe. */
-function Placa({ placa }: { placa: string | null }) {
-  if (!placa) return <span className="rounded-md border-2 border-dashed border-tinta bg-white px-3 py-1 font-mono text-xl font-bold tracking-widest text-tinta">SEM PLACA</span>;
-  return (
-    <span className="inline-flex flex-col overflow-hidden rounded-md border-2 border-tinta bg-white text-center shadow-sm">
-      <span aria-hidden className="bg-agua-escura px-3 text-[0.625rem] font-bold leading-4 tracking-widest text-white">
-        BRASIL
-      </span>
-      <span className="px-3 py-0.5 font-mono text-2xl font-bold tracking-[0.15em] text-tinta">
-        <span className="sr-only">Placa </span>
-        {placa}
-      </span>
-    </span>
-  );
-}
-
 export default async function AcompanharPage({ params }: { params: Promise<{ token: string }> }) {
   const os = await buscarOsPublica((await params).token);
   // Só cosmético para o teste de HTML byte a byte: sem I/O (token malformado) a página terminava antes dos chunks de
@@ -66,7 +51,8 @@ export default async function AcompanharPage({ params }: { params: Promise<{ tok
     <main className="mx-auto max-w-md px-4 py-8">
       <p className="text-base font-semibold text-suave">{os.lavaJato.nome}</p>
       <div className="mt-4 flex flex-wrap items-center gap-4">
-        <Placa placa={os.veiculo.placa} />
+        {os.veiculo.placa && <span className="sr-only">Placa </span>}
+        <Placa valor={os.veiculo.placa} className="rounded-md [&>span]:py-0.5 [&>span]:text-2xl" />
         {os.veiculo.modelo && <p className="text-lg font-semibold text-tinta">{os.veiculo.modelo}</p>}
       </div>
 

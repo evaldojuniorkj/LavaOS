@@ -46,7 +46,11 @@ export async function lavadorAtivo(ctx: TenantContext, id: string, db: Leitor = 
   return !!m;
 }
 
-/** Lavadores ativos: livre = nenhuma OS em lavagem; sugerido = o livre há mais tempo (só orientação). */
+/**
+ * Lavadores ativos: livre = nenhuma OS em lavagem; sugerido = o livre há mais tempo (só orientação).
+ * shortcut: o left join lê todo o histórico de OSs de cada lavador (cresce com o histórico, não com o dia) e roda a cada recarga do painel;
+ * acima de ~10k OSs por tenant, restringir a em_lavagem e ao último prontoEm por subquery/lateral.
+ */
 export async function listarLavadoresParaDirecionar(ctx: TenantContext, db: Leitor = getDatabase()) {
   const rows = await db
     .select({

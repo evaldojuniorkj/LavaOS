@@ -11,13 +11,14 @@ import type { cadastroRapidoSchema, salvarClienteSchema, salvarTelefoneClienteSc
 
 /** Recusa de regra com mensagem segura para a tela. */
 export class ClientesError extends Error {
-  constructor(readonly code: 'NAO_ENCONTRADO' | 'PLACA_DUPLICADA', message: string) {
+  constructor(readonly code: 'NAO_ENCONTRADO' | 'PLACA_DUPLICADA' | 'VALIDACAO', message: string, readonly campo?: string) {
     super(message);
     this.name = 'ClientesError';
   }
 }
 const placaDuplicada = () => new ClientesError('PLACA_DUPLICADA', 'Já existe um veículo com esta placa.');
 const violouUnique = (err: unknown) => [err, (err as { cause?: unknown })?.cause].some((e) => (e as { code?: string } | null)?.code === '23505');
+const placaObrigatoria = () => new ClientesError('VALIDACAO', 'Informe a placa.', 'placa');
 const naoEncontrado = (o: string) => new ClientesError('NAO_ENCONTRADO', `${o} não encontrado.`);
 
 export async function salvarCliente(ctx: TenantContext, input: z.output<typeof salvarClienteSchema>, db: Database = getDatabase()): Promise<Cliente> {
@@ -52,8 +53,17 @@ function gravarVeiculo(db: Database, ctx: TenantContext, id: string | undefined,
       const [c] = await tx.select({ id: clientes.id }).from(clientes).where(and(eq(clientes.tenantId, ctx.tenantId), eq(clientes.id, dados.clienteId)));
       if (!c) throw naoEncontrado('Cliente');
     }
-    const [mesmaPlaca] = await tx.select({ id: veiculos.id }).from(veiculos).where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.placa, dados.placa)));
-    if (mesmaPlaca && mesmaPlaca.id !== id) throw placaDuplicada();
+    const { placa } = dados;
+    if (placa) {
+      const [mesmaPlaca] = await tx.select({ id: veiculos.id }).from(veiculos).where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.placa, placa)));
+      if (mesmaPlaca && mesmaPlaca.id !== id) throw placaDuplicada();
+    } else {
+      // sem placa só é aceito ao editar um veículo que já não tem; nunca se apaga placa existente
+      if (!id) throw placaObrigatoria();
+      const [atual] = await tx.select({ placa: veiculos.placa }).from(veiculos).where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.id, id)));
+      if (!atual) throw naoEncontrado('Veículo');
+      if (atual.placa) throw placaObrigatoria();
+    }
     if (!id) return (await tx.insert(veiculos).values({ ...dados, tenantId: ctx.tenantId }).returning(camposVeiculo))[0];
     const [v] = await tx.update(veiculos).set(dados).where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.id, id))).returning(camposVeiculo);
     if (!v) throw naoEncontrado('Veículo');

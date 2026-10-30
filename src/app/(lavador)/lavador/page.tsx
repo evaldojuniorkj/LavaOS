@@ -9,7 +9,7 @@ export const metadata = { title: 'Fila | LavaOS' };
 export default async function LavadorPage() {
   const ctx = await contextoOuNull(await headers());
   if (!ctx) redirect('/login?motivo=sessao');
-  if (ctx.perfil !== 'lavador') redirect('/fila');
+  if (ctx.perfil !== 'lavador') redirect('/inicio');
   // listarFila devolve a visão do perfil: para o lavador, sem nenhum valor, telefone ou token
   return <FilaLavador inicial={await listarFila(ctx)} meuId={ctx.memberId} />;
 }

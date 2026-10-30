@@ -21,7 +21,7 @@ async function executar<S extends z.ZodType, T>(permissao: Permissao, schema: S,
     return { ok: true, data: await fn(ctx, parsed.data) };
   } catch (err) {
     if (err instanceof AcessoNegadoError) return { ok: false, code: 'ACESSO_NEGADO', message: 'acesso negado' }; // já registrado por requirePermission
-    if (err instanceof ClientesError) return { ok: false, code: err.code, message: err.message };
+    if (err instanceof ClientesError) return { ok: false, code: err.code, message: err.message, ...(err.campo && { fieldErrors: { [err.campo]: [err.message] } }) };
     console.error('[clientes] falha inesperada', { erro: err instanceof Error ? err.name : typeof err });
     return { ok: false, code: 'ERRO_INTERNO', message: 'Não foi possível concluir. Tente novamente.' };
   }

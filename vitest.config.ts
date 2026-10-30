@@ -4,13 +4,12 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   test: {
-    globalSetup: ['./tests/helpers/global-setup.ts'],
     fileParallelism: false, // integração compartilha o banco de testes
     alias: { 'server-only': fileURLToPath(new URL('./tests/helpers/empty.ts', import.meta.url)) },
     // unit primeiro, depois integration (grupos em sequência); `--project` roda um só
     projects: [
       { extends: true, test: { name: 'unit', include: ['tests/unit/**/*.test.ts'], sequence: { groupOrder: 0 } } },
-      { extends: true, test: { name: 'integration', include: ['tests/integration/**/*.test.ts'], sequence: { groupOrder: 1 } } },
+      { extends: true, test: { name: 'integration', globalSetup: ['./tests/helpers/global-setup.ts'], include: ['tests/integration/**/*.test.ts'], sequence: { groupOrder: 1 } } },
     ],
   },
 });

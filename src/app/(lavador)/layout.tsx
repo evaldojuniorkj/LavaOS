@@ -10,7 +10,7 @@ import { nomeLavaJato } from '@/modules/equipe/equipe.repo';
 export default async function LavadorLayout({ children }: { children: React.ReactNode }) {
   const ctx = await contextoOuNull(await headers());
   if (!ctx) redirect('/login?motivo=sessao');
-  if (ctx.perfil !== 'lavador') redirect('/fila'); // só UX: as telas internas são as do balcão
+  if (ctx.perfil !== 'lavador') redirect('/inicio'); // só UX: as telas internas são as do balcão
   return (
     <div className="min-h-dvh bg-enxague text-base">
       <header className="sticky top-0 z-20 bg-tinta pt-[env(safe-area-inset-top)] text-white">

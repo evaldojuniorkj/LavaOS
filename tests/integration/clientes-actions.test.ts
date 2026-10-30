@@ -253,4 +253,27 @@ describe('clientes.actions', () => {
       const c = await cadastroRapidoAction({ semPlaca: true, modelo: 'Pop 110', porteId: porte.id, clienteNome: 'Y' });
       expect(c).toEqual({ ok: true, data: { veiculoId: expect.any(String) } }); // sem clienteId para o lavador
     }));
+
+  it('veículo sem placa é editável em /clientes: placa em branco continua NULL, placa válida entra, duplicada e limpar placa existente são recusadas', () =>
+    run(async (db, f) => {
+      const porte = await porteDe(db, f.a.tenantId);
+      const outro = await porteDe(db, f.a.tenantId, 'Grande');
+      const [cli] = await db.insert(clientes).values({ tenantId: f.a.tenantId, nome: 'Zé' }).returning();
+      const [moto] = await db.insert(veiculos).values({ tenantId: f.a.tenantId, placa: null, porteId: porte.id, modelo: 'CG 160' }).returning();
+      const [comPlaca] = await db.insert(veiculos).values({ tenantId: f.a.tenantId, placa: 'AAA1111', porteId: porte.id }).returning();
+      await como(f, f.a.membros.dono.userId);
+      const base = { id: moto.id, porteId: outro.id, modelo: 'CG 160 Fan', cor: 'Preta', clienteId: cli.id };
+      for (const placa of ['', '   ']) {
+        expect(await salvarVeiculoAction({ ...base, placa })).toMatchObject({ ok: true, data: { placa: null, modelo: 'CG 160 Fan', cor: 'Preta', porteId: outro.id, clienteId: cli.id } });
+      }
+      expect(await salvarVeiculoAction({ ...base, placa: 'aaa-1111' })).toMatchObject({ ok: false, code: 'PLACA_DUPLICADA' });
+      expect(await salvarVeiculoAction({ ...base, placa: 'ab12' })).toMatchObject({ ok: false, code: 'VALIDACAO', fieldErrors: { placa: expect.any(Array) } });
+      expect(await salvarVeiculoAction({ ...base, placa: 'bbb-2c22' })).toMatchObject({ ok: true, data: { placa: 'BBB2C22' } });
+      // com placa, não se limpa
+      expect(await salvarVeiculoAction({ ...base, placa: '' })).toMatchObject({ ok: false, code: 'VALIDACAO', fieldErrors: { placa: ['Informe a placa.'] } });
+      expect(await salvarVeiculoAction({ id: comPlaca.id, porteId: porte.id, placa: ' ' })).toMatchObject({ ok: false, fieldErrors: { placa: ['Informe a placa.'] } });
+      // criar sem placa segue recusado
+      expect(await salvarVeiculoAction({ porteId: porte.id, placa: '' })).toMatchObject({ ok: false, fieldErrors: { placa: ['Informe a placa.'] } });
+      expect(await db.select().from(veiculos).where(eq(veiculos.id, comPlaca.id))).toMatchObject([{ placa: 'AAA1111' }]);
+    }));
 });

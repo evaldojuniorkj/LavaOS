@@ -10,7 +10,7 @@ export const metadata = { title: 'Nova lavagem | LavaOS' };
 export default async function NovaLavagemPage() {
   const ctx = await contextoOuNull(await headers());
   if (!ctx) redirect('/login?motivo=sessao');
-  if (ctx.perfil !== 'lavador') redirect('/fila');
+  if (ctx.perfil !== 'lavador') redirect('/inicio');
   const portes = await listarPortes(ctx);
   // só id, nome e adicional: o valor nunca sai do servidor para o lavador
   const servicos = Object.fromEntries(

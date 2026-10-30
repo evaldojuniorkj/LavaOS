@@ -333,6 +333,17 @@ test('cada perfil cai na sua tela: recepção em /lavador vai à /fila e lavador
     await expect(rec, rota).toHaveURL('/fila');
   }
   await rec.context().close();
+  // dono e gerente passam por /inicio e caem no painel
+  for (const email of ['dono@e2e.test', 'gerente@e2e.test']) {
+    const gestao = await novoContexto(browser);
+    await entrarStaff(gestao, email);
+    await expect(gestao).toHaveURL('/painel');
+    for (const rota of ['/lavador', '/lavador/nova']) {
+      await gestao.goto(rota);
+      await expect(gestao, `${email} ${rota}`).toHaveURL('/painel');
+    }
+    await gestao.context().close();
+  }
 });
 
 test('sem vibração nem Wake Lock (iPhone/Safari) nada quebra; com Wake Lock a tela fica acesa e é repedida ao voltar', async ({ page, browser }) => {

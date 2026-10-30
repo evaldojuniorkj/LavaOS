@@ -11,6 +11,13 @@ const placa = z.string().transform((v, ctx) => {
   if (!p) ctx.issues.push({ code: 'custom', message: 'Placa inválida. Use AAA-1234 ou AAA1B23.', input: v });
   return p ?? z.NEVER;
 });
+// Em branco = sem placa (veículo de moto/passagem); se o veículo já tem placa, o serviço recusa limpar.
+const placaOuVazia = z.string().transform((v, ctx) => {
+  if (!v.trim()) return null;
+  const p = normalizarPlaca(v);
+  if (!p) ctx.issues.push({ code: 'custom', message: 'Placa inválida. Use AAA-1234 ou AAA1B23.', input: v });
+  return p ?? z.NEVER;
+});
 export const telefone = z
   .string()
   .trim()
@@ -27,7 +34,7 @@ export const salvarClienteSchema = z.strictObject({ id: id.optional(), nome, tel
 
 export const salvarTelefoneClienteSchema = z.strictObject({ clienteId: id, telefone: telefone.refine((v): v is string => !!v, 'Informe o telefone.') });
 
-export const salvarVeiculoSchema = z.strictObject({ id: id.optional(), placa, porteId: id, modelo: texto(80), cor: texto(40), clienteId: id.nullish() });
+export const salvarVeiculoSchema = z.strictObject({ id: id.optional(), placa: placaOuVazia, porteId: id, modelo: texto(80), cor: texto(40), clienteId: id.nullish() });
 
 // União { placa } | { semPlaca: true, modelo } em um objeto só, para o erro cair no campo certo.
 export const cadastroRapidoSchema = z
