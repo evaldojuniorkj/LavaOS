@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { IconeCaixa, IconeCatalogo, IconeClientes, IconeEquipe, IconeFila, IconeMais, IconeNova, IconePainel } from '@/components/ui/icones';
+import { IconeCaixa, IconeCatalogo, IconeClientes, IconeDespesas, IconeEquipe, IconeFila, IconeMais, IconeNova, IconePainel } from '@/components/ui/icones';
 import { authClient } from '@/lib/auth/client';
 import type { Perfil } from '@/lib/auth/types';
 import { cn } from '@/lib/utils';
@@ -22,7 +22,7 @@ export const PERFIL_ROTULO: Record<Perfil, string> = { dono: 'Dono', gerente: 'G
  * Celular: barra de abas embaixo (polegar) e barra de título em cima. A partir de `lg`: menu lateral (§6 da spec).
  * Uma só `<nav>` muda de lugar por CSS, então os links não se duplicam. Só mostra telas existentes e por permissão; é conveniência, a regra é do servidor.
  */
-export function AppShell({ nome, perfil, podePainel, podeFila, podeAbrirOs, podeCaixa, podeEquipe, podeCatalogo, podeClientes, children }: { nome: string; perfil: Perfil; podePainel: boolean; podeFila: boolean; podeAbrirOs: boolean; podeCaixa: boolean; podeEquipe: boolean; podeCatalogo: boolean; podeClientes: boolean; children: React.ReactNode }) {
+export function AppShell({ nome, perfil, podePainel, podeFila, podeAbrirOs, podeCaixa, podeDespesas, podeEquipe, podeCatalogo, podeClientes, children }: { nome: string; perfil: Perfil; podePainel: boolean; podeFila: boolean; podeAbrirOs: boolean; podeCaixa: boolean; podeDespesas: boolean; podeEquipe: boolean; podeCatalogo: boolean; podeClientes: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [saindo, setSaindo] = useState(false);
@@ -32,6 +32,7 @@ export function AppShell({ nome, perfil, podePainel, podeFila, podeAbrirOs, pode
     ...(podeFila ? [{ href: '/fila', rotulo: 'Fila', icone: <IconeFila /> }] : []),
     ...(podeAbrirOs ? [{ href: '/nova-os', rotulo: 'Nova OS', icone: <IconeNova /> }] : []),
     ...(podeCaixa ? [{ href: '/caixa', rotulo: 'Caixa', icone: <IconeCaixa /> }] : []),
+    ...(podeDespesas ? [{ href: '/despesas', rotulo: 'Despesas', icone: <IconeDespesas /> }] : []),
     ...(podeClientes ? [{ href: '/clientes', rotulo: 'Clientes', icone: <IconeClientes /> }] : []),
     ...(podeEquipe ? [{ href: '/configuracoes/equipe', rotulo: 'Equipe', icone: <IconeEquipe /> }] : []),
     ...(podeCatalogo ? [{ href: '/configuracoes/catalogo', rotulo: 'Catálogo', icone: <IconeCatalogo /> }] : []),

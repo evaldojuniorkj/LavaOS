@@ -50,6 +50,12 @@ export const IconeCaixa = () => (
     <path d="M6 9.5v5M18 9.5v5" />
   </svg>
 );
+export const IconeDespesas = () => (
+  <svg {...base}>
+    <path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" />
+    <path d="M9 8h6M9 12h6" />
+  </svg>
+);
 export const IconeMais = () => (
   <svg {...base}>
     <circle cx="5" cy="12" r="1.3" />

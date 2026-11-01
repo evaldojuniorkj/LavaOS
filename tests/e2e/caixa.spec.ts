@@ -68,7 +68,7 @@ test('em 360 px o dono vê 4 abas + Mais, e o Mais lista o resto', async ({ page
   await expect(nav.getByRole('link')).toHaveText(['Painel', 'Fila', 'Nova OS', 'Caixa']);
   await semRolagemHorizontal(page);
   await nav.getByRole('button', { name: 'Mais' }).click();
-  await expect(nav.getByRole('link')).toHaveText(['Painel', 'Fila', 'Nova OS', 'Caixa', 'Clientes', 'Equipe', 'Catálogo']);
+  await expect(nav.getByRole('link')).toHaveText(['Painel', 'Fila', 'Nova OS', 'Caixa', 'Despesas', 'Clientes', 'Equipe', 'Catálogo']);
   await semRolagemHorizontal(page);
   await nav.getByRole('link', { name: 'Catálogo' }).click();
   await expect(page).toHaveURL('/configuracoes/catalogo');
