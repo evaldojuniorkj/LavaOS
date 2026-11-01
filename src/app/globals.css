@@ -1,0 +1,61 @@
+@import 'tailwindcss';
+
+/* Paleta do lava jato: tinta azul-petróleo, branco de enxágue, azul de jato d'água; foco em amarelo de segurança. */
+@theme {
+  --color-tinta: #0b2231;
+  --color-enxague: #e9f0f4;
+  --color-linha: #b7c8d2;
+  --color-agua: #0a6ea0;
+  --color-agua-escura: #085a84;
+  --color-pronto: #12795a;
+  --color-perigo: #b42318;
+  --color-sinal: #f2b705;
+  --color-suave: #475f6f;
+  /* Fonte do sistema: SF Pro no iPhone, Roboto no Android — é o que faz o app parecer nativo e não baixa nada. */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --shadow-cartao: 0 1px 2px rgb(11 34 49 / 0.06), 0 4px 14px rgb(11 34 49 / 0.06);
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Foco visível e grosso em tudo que é interativo, só por teclado. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--color-sinal);
+  outline-offset: 2px;
+}
+
+/* Alvos de toque sem o atraso do duplo toque e sem seleção de texto ao segurar. */
+:where(a, button, select, summary) {
+  touch-action: manipulation;
+}
+
+/* Folha que sobe de baixo (bottom sheet): responde a uma ação do usuário, então anima; sem animação se o sistema pedir. */
+@keyframes subir {
+  from {
+    transform: translateY(2.5rem);
+    opacity: 0;
+  }
+}
+.folha[open] {
+  animation: subir 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.folha::backdrop {
+  animation: esmaecer 0.22s ease-out;
+}
+@keyframes esmaecer {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .folha[open],
+  .folha::backdrop {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}

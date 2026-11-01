@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793154940063,
+      "tag": "0000_fundacao",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793155885808,
+      "tag": "0001_org_plugin_campos",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793156658924,
+      "tag": "0002_pin_sessao_e_limite_origem",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793308617404,
+      "tag": "0003_operacao",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793389846307,
+      "tag": "0004_amazing_morgan_stark",
+      "breakpoints": true
+    }
+  ]
+}

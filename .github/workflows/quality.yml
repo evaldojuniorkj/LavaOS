@@ -1,0 +1,58 @@
+# Mesmas verificações do `pnpm verify:operacao` local. Nunca roda seed-dev nem toca produção.
+name: quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      # Publicado em localhost:55432 como o compose local: os padrões de tests/helpers/test-db.ts valem sem configuração.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres_ci_efemero # valor fixo versionado; seguro só porque o container é descartado ao fim do job e escuta em loopback
+        ports:
+          - 127.0.0.1:55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v5
+      # versão do pnpm vem de packageManager (pnpm@11.x); a do Node, de .node-version (24.x)
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Roles e bancos separados (lavaos_owner DDL, lavaos_app DML; lavaos_dev e lavaos_test)
+        run: psql -v ON_ERROR_STOP=1 -f scripts/db-local-init.sql
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '55432'
+          PGUSER: postgres
+          PGPASSWORD: postgres_ci_efemero
+      - name: Migrations em banco vazio (role de DDL)
+        run: pnpm db:migrate
+        env:
+          MIGRATION_DATABASE_URL: postgres://lavaos_owner:owner_local_dev@127.0.0.1:55432/lavaos_dev
+
+      - run: pnpm exec playwright install --with-deps chromium
+      # lint → typecheck → test → build → E2E. Segredos de auth e senhas/PINs de teste são gerados por execução (senhas das roles são fixas);
+      # com CI=true o Playwright não grava traces e nenhum artefato (test-results/) é publicado.
+      - run: pnpm verify:operacao
