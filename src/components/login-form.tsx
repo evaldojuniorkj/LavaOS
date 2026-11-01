@@ -13,7 +13,7 @@ type Org = { id: string; name: string };
 const FALHA = 'Não foi possível entrar. Tente novamente.';
 
 /** Login de staff (e-mail/senha) e do lavador (usuário/PIN). O servidor decide o acesso; aqui só se envia e se navega. */
-export function LoginForm({ destino }: { destino: string }) {
+export function LoginForm({ destino, preenchido }: { destino: string; preenchido?: { email: string; senha: string } }) {
   const [modo, setModo] = useState<Modo>('email');
   const [erros, setErros] = useState<Erros>({});
   const [erro, setErro] = useState('');
@@ -137,8 +137,8 @@ export function LoginForm({ destino }: { destino: string }) {
 
       {modo === 'email' ? (
         <>
-          <Campo id="email" rotulo="E-mail" type="email" autoComplete="username" erro={erros.email} />
-          <Campo id="senha" rotulo="Senha" type="password" autoComplete="current-password" erro={erros.senha} />
+          <Campo id="email" rotulo="E-mail" type="email" autoComplete="username" defaultValue={preenchido?.email} erro={erros.email} />
+          <Campo id="senha" rotulo="Senha" type="password" autoComplete="current-password" defaultValue={preenchido?.senha} erro={erros.senha} />
         </>
       ) : (
         <>
