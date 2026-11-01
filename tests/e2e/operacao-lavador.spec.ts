@@ -140,6 +140,15 @@ test('cartão mostra o botão certo por estado, meus carros primeiro e OS de out
 test('nenhum R$, pagamento, telefone, token ou comissão no texto, no HTML, no RSC, nas actions nem no SSE', async ({ page }) => {
   const placa = await semear('aguardando', null);
   const paga = await semear('aguardando', null); // na fila do lavador, com pagamento
+  // OS entregue dele com comissão gerada no banco: a varredura abaixo prova que ela não vaza
+  const entregue = await semear('pronto', 'eu');
+  await pool.query(`update ordens_servico set status = 'entregue', entregue_em = now() where veiculo_id = (select id from veiculos where placa = $1)`, [entregue]);
+  const comissao = await pool.query(
+    `insert into comissoes (tenant_id, os_id, os_item_id, membro_id, base_centavos, valor_centavos)
+     select i.tenant_id, i.os_id, i.id, o.responsavel_id, i.valor_centavos, 1500 from os_itens i join ordens_servico o on o.id = i.os_id join veiculos v on v.id = o.veiculo_id where v.placa = $1`,
+    [entregue],
+  );
+  expect(comissao.rowCount).toBe(1);
   const corpos: string[] = [];
   // tudo que a página recebe, menos código estático (/_next/static) e o stream SSE (lido abaixo pelo próprio EventSource)
   await page.route('**/*', async (route) => {
