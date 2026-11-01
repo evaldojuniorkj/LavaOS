@@ -54,6 +54,11 @@ export async function pendentesPorMembro(ctx: TenantContext, ate: string, db: Le
     .filter((m) => m.comissoesCentavos || m.valesCentavos || m.saldoAnteriorCentavos);
 }
 
+/** Vales pendentes um a um, para a tela poder cancelar cada um. */
+export function listarValesPendentes(ctx: TenantContext, ate: string, db: Leitor = getDatabase()) {
+  return db.select({ id: vales.id, membroId: vales.membroId, valorCentavos: vales.valorCentavos, dadoEm: vales.dadoEm }).from(vales).where(valesPendentes(ctx, ate)).orderBy(asc(vales.dadoEm));
+}
+
 export function acertosDoMembro(ctx: TenantContext, membroId: string, db: Leitor = getDatabase()) {
   return db
     .select()

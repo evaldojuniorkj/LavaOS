@@ -74,7 +74,7 @@
 
 **Files:** `src/app/(interno)/comissoes/page.tsx`, `src/components/comissoes-view.tsx`, menu (`app-shell`, `layout`, ícone), `ROTAS_INTERNAS`, `matcher`.
 
-- [ ] Por membro: comissões pendentes, vales pendentes, saldo devedor anterior, **a pagar** ou **fica devendo**; "Lançar vale" (valor, "pago com dinheiro do caixa" quando o caixa de hoje está aberto); "Fazer acerto até [data, padrão hoje]" com a prévia antes de confirmar; histórico de acertos; "Imprimir" abre o detalhe do acerto com CSS de impressão (`@media print`, sem menu), para o lavador conferir. Reaproveita `Modal`/`Motivo`, `formatarReais`, `decimalParaCentesimos`. Lint, typecheck, test → commit `feat(comissoes): tela de comissões, vales e acerto`.
+- [x] Por membro: comissões pendentes, vales pendentes, saldo devedor anterior, **a pagar** ou **fica devendo**; "Lançar vale" (valor, "pago com dinheiro do caixa" quando o caixa de hoje está aberto); "Fazer acerto até [data, padrão hoje]" com a prévia antes de confirmar; histórico de acertos; "Imprimir" abre o detalhe do acerto com CSS de impressão (`@media print`, sem menu), para o lavador conferir. Reaproveita `Modal`/`Motivo`, `formatarReais`, `decimalParaCentesimos`. Lint, typecheck, test → commit `feat(comissoes): tela de comissões, vales e acerto`.
 
 ### Task 6: E2E e fechamento da fase
 
