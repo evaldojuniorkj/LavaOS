@@ -11,6 +11,7 @@ export type OsCompleta = {
   descontoCentavos: number;
   acrescimoCentavos: number;
   totalCentavos: number;
+  pagoCentavos: number; // soma dos pagamentos ativos (não estornados)
   tokenPublico: string;
   urlAcompanhar: string; // montada no servidor com a URL pública; só a visão de gestão a recebe
   lavaJato: string;
@@ -27,7 +28,7 @@ export type OsCompleta = {
   canceladaEm: Date | null;
 };
 
-type Base = Omit<OsCompleta, 'subtotalCentavos' | 'descontoCentavos' | 'acrescimoCentavos' | 'totalCentavos' | 'tokenPublico' | 'urlAcompanhar' | 'lavaJato' | 'clienteId' | 'cliente' | 'itens'>;
+type Base = Omit<OsCompleta, 'subtotalCentavos' | 'descontoCentavos' | 'acrescimoCentavos' | 'totalCentavos' | 'pagoCentavos' | 'tokenPublico' | 'urlAcompanhar' | 'lavaJato' | 'clienteId' | 'cliente' | 'itens'>;
 /** Sem nenhum valor em R$, sem telefone e sem token público (spec §3). */
 export type OsViewLavador = Base & { cliente: { nome: string } | null; itens: { id: string; nome: string }[] };
 export type OsViewGestao = OsCompleta;
@@ -62,6 +63,7 @@ export function toOsView(perfil: Perfil, os: OsCompleta): OsView {
     descontoCentavos: os.descontoCentavos,
     acrescimoCentavos: os.acrescimoCentavos,
     totalCentavos: os.totalCentavos,
+    pagoCentavos: os.pagoCentavos,
     tokenPublico: os.tokenPublico,
     urlAcompanhar: os.urlAcompanhar,
     lavaJato: os.lavaJato,

@@ -1,14 +1,14 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { getDatabase } from '@/lib/db/client';
-import { ordensServico, osItens, servicos } from '@/lib/db/schema';
+import { ordensServico, osItens, pagamentos, servicos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { listarFilaAction, obterOsAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
 import { listarFila } from '@/modules/ordens/ordens.repo';
 import { ERROS_RECARREGAR_FILA } from '@/modules/ordens/ordens.rules';
 import { createAuthFixtures, type AuthFixtures } from '../helpers/auth';
 import { withTestDatabase } from '../helpers/db';
-import { criarOs, semearVeiculo, sessaoLavador, sessaoStaff } from '../helpers/ordens';
+import { criarOs, pagar, semearVeiculo, sessaoLavador, sessaoStaff } from '../helpers/ordens';
 
 const req = vi.hoisted(() => ({ headers: new Headers() }));
 vi.mock('next/headers', () => ({ headers: async () => req.headers }));
@@ -40,23 +40,32 @@ afterAll(async () => {
 
 describe('leitura da fila', () => {
   it('lavador vê a fila inteira sem nenhum campo monetário (varredura recursiva)', () =>
-    run(async ({ f, os }) => {
+    run(async ({ db, f, os }) => {
       const a = await os();
+      await pagar(db, { tenantId: f.a.tenantId, osId: a.id, recebidoPor: f.a.membros.recepcao.memberId });
       await os({ status: 'em_lavagem', responsavelId: f.a.membros.lavador.memberId });
       req.headers = await sessaoLavador(f);
       const fila = dados(await listarFilaAction());
       expect(fila).toHaveLength(2);
-      expect(chaves(fila).filter((k) => /centavos|token|telefone|comissao/i.test(k))).toEqual([]);
+      expect(chaves(fila).filter((k) => /centavos|pago|token|telefone|comissao/i.test(k))).toEqual([]);
       const um = dados(await obterOsAction({ osId: a.id }));
       expect(chaves(um).filter((k) => /centavos|token|telefone|comissao/i.test(k))).toEqual([]);
     }));
 
-  it('gestão vê totais, itens com valor e telefone', () =>
-    run(async ({ f, os }) => {
+  it('gestão vê totais, itens com valor, telefone e o pago (só pagamentos ativos)', () =>
+    run(async ({ db, f, os }) => {
       const o = await os();
+      const semPagamento = await os();
+      const rec = f.a.membros.recepcao.memberId;
+      await pagar(db, { tenantId: f.a.tenantId, osId: o.id, recebidoPor: rec, valorCentavos: 2000 });
+      const estornado = await pagar(db, { tenantId: f.a.tenantId, osId: o.id, recebidoPor: rec, valorCentavos: 1000 });
+      await db.update(pagamentos).set({ estornadoEm: new Date(), estornadoPor: rec, motivoEstorno: 'x' }).where(eq(pagamentos.id, estornado.id));
       for (const m of ['dono', 'gerente', 'recepcao'] as const) {
         await como(f, f.a.membros[m].userId);
-        expect(dados(await listarFilaAction())).toMatchObject([{ id: o.id, totalCentavos: 5000, tokenPublico: o.tokenPublico, itens: [{ nome: 'Lavagem', valorCentavos: 5000 }] }]);
+        expect(dados(await listarFilaAction())).toMatchObject([
+          { id: o.id, totalCentavos: 5000, pagoCentavos: 2000, tokenPublico: o.tokenPublico, itens: [{ nome: 'Lavagem', valorCentavos: 5000 }] },
+          { id: semPagamento.id, pagoCentavos: 0 },
+        ]);
       }
     }));
 
@@ -80,8 +89,7 @@ describe('leitura da fila', () => {
         return n;
       };
       const tres = await consultas();
-      await os();
-      await os();
+      for (const o of [await os(), await os()]) await pagar(db, { tenantId: f.a.tenantId, osId: o.id, recebidoPor: f.a.membros.recepcao.memberId });
       expect(await consultas()).toBe(tres);
     }));
 

@@ -1,10 +1,10 @@
 import 'server-only';
-import { and, asc, eq, inArray, max, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, max, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { TenantContext } from '@/lib/auth/types';
 import { getServerEnv } from '@/lib/env';
 import { getDatabase } from '@/lib/db/client';
-import { clientes, lavaJatos, membros, ordensServico, osItens, precos, servicos, veiculos } from '@/lib/db/schema';
+import { clientes, lavaJatos, membros, ordensServico, osItens, pagamentos, precos, servicos, veiculos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { sugerirLavadorLivre } from './ordens.rules';
 import { toOsView, type OsCompleta, type OsView } from './ordens.views';
@@ -69,7 +69,7 @@ export async function listarLavadoresParaDirecionar(ctx: TenantContext, db: Leit
   return rows.map((r) => ({ membroId: r.membroId, nome: r.nome, livre: r.emLavagem === 0, sugerido: r.membroId === sugerido }));
 }
 
-/** OSs que casam com `filtro` (sempre dentro do tenant), em 2 consultas, mais antigas primeiro. */
+/** OSs que casam com `filtro` (sempre dentro do tenant), em 3 consultas, mais antigas primeiro. */
 async function carregarVarias(ctx: TenantContext, filtro: SQL, db: Leitor): Promise<OsCompleta[]> {
   const rows = await db
     .select({
@@ -93,6 +93,12 @@ async function carregarVarias(ctx: TenantContext, filtro: SQL, db: Leitor): Prom
     .from(osItens)
     .where(and(eq(osItens.tenantId, ctx.tenantId), inArray(osItens.osId, rows.map((r) => r.os.id))))
     .orderBy(asc(osItens.createdAt), asc(osItens.id));
+  const pagos = await db
+    .select({ osId: pagamentos.osId, total: sql<number>`sum(${pagamentos.valorCentavos})`.mapWith(Number) })
+    .from(pagamentos)
+    .where(and(eq(pagamentos.tenantId, ctx.tenantId), inArray(pagamentos.osId, rows.map((r) => r.os.id)), isNull(pagamentos.estornadoEm)))
+    .groupBy(pagamentos.osId);
+  const pagoDe = new Map(pagos.map((p) => [p.osId, p.total]));
   return rows.map(({ os, veiculo, cliente, lavaJato, responsavel }) => ({
     id: os.id,
     numero: os.numero,
@@ -102,6 +108,7 @@ async function carregarVarias(ctx: TenantContext, filtro: SQL, db: Leitor): Prom
     descontoCentavos: os.descontoCentavos,
     acrescimoCentavos: os.acrescimoCentavos,
     totalCentavos: os.totalCentavos,
+    pagoCentavos: pagoDe.get(os.id) ?? 0,
     tokenPublico: os.tokenPublico,
     urlAcompanhar: `${urlBase}/acompanhar/${os.tokenPublico}`,
     lavaJato,

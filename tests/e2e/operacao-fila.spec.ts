@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
+import { quitarOs } from './dinheiro';
 import { entrarLavador, entrarStaff, semRolagemHorizontal, SUFIXO } from './login';
 
 // Catálogo, veículo existente e o segundo lavador vêm do global-setup. O app do lavador (/lavador) tem o próprio spec.
@@ -150,6 +151,7 @@ test('segunda aba vê a OS aparecer sem recarregar', async ({ page, browser }) =
   await expect(coluna(page, 'Em lavagem').getByRole('article').filter({ hasText: placa })).toContainText('Gerente E2E');
   await cartao(ger, placa).getByRole('button', { name: 'Marcar pronto' }).click();
   await expect(coluna(page, 'Pronto').getByRole('article').filter({ hasText: placa })).toBeVisible();
+  await quitarOs(placa);
   await cartao(page, placa).getByRole('button', { name: 'Entregar' }).click();
   await expect(cartao(ger, placa)).toHaveCount(0);
   for (const p of [page, ger]) expect(await p.evaluate(() => (window as { marca?: number }).marca)).toBe(1);

@@ -8,7 +8,7 @@ import { carregarOs } from '@/modules/ordens/ordens.repo';
 import { ajustarValorAction, editarItensAction } from '@/modules/ordens/ordens.actions';
 import { createAuthFixtures, type AuthFixtures } from '../helpers/auth';
 import { withTestDatabase } from '../helpers/db';
-import { criarOs, semearVeiculo, sessaoLavador, sessaoStaff } from '../helpers/ordens';
+import { criarOs, pagar, semearVeiculo, sessaoLavador, sessaoStaff } from '../helpers/ordens';
 
 const req = vi.hoisted(() => ({ headers: new Headers() }));
 vi.mock('next/headers', () => ({ headers: async () => req.headers }));
@@ -90,6 +90,21 @@ describe('edição de OS', () => {
       expect(await itens(db, osId)).toHaveLength(1);
       expect(await eventos(db, osId)).toEqual([]);
     }, status));
+
+  it('total abaixo do já pago é recusado; igual ou acima passa', () =>
+    run(async ({ db, f, osId, cera }) => {
+      await pagar(db, { tenantId: f.a.tenantId, osId, recebidoPor: f.a.membros.recepcao.memberId });
+      await como(f, f.a.membros.gerente.userId);
+      const abaixo = { ok: false, code: 'ABAIXO_DO_PAGO', message: 'Já foram pagos R$ 50,00. O total não pode ficar abaixo disso.' };
+      expect(await ajustarValorAction({ osId, descontoCentavos: 1, acrescimoCentavos: 0 })).toEqual(abaixo);
+      expect(await editarItensAction({ osId, adicionar: [cera], remover: [] })).toMatchObject({ ok: true, data: { totalCentavos: 8000, pagoCentavos: 5000 } });
+      expect(await ajustarValorAction({ osId, descontoCentavos: 3000, acrescimoCentavos: 0 })).toMatchObject({ ok: true, data: { totalCentavos: 5000 } });
+      expect(await ajustarValorAction({ osId, descontoCentavos: 3001, acrescimoCentavos: 0 })).toEqual(abaixo);
+      const item = (await itens(db, osId)).find((i) => i.nome === 'Cera')!;
+      expect(await editarItensAction({ osId, adicionar: [], remover: [item.id] })).toEqual(abaixo);
+      expect(await itens(db, osId)).toHaveLength(2);
+      expect(await linha(db, osId)).toMatchObject({ totalCentavos: 5000, descontoCentavos: 3000 });
+    }));
 
   it('item adicionado usa preço atual; itens antigos mantêm o copiado', () =>
     run(async ({ db, f, osId, lavagem, cera, polimento }) => {

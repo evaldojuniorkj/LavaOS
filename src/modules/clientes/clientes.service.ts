@@ -60,7 +60,8 @@ function gravarVeiculo(db: Database, ctx: TenantContext, id: string | undefined,
     } else {
       // sem placa só é aceito ao editar um veículo que já não tem; nunca se apaga placa existente
       if (!id) throw placaObrigatoria();
-      const [atual] = await tx.select({ placa: veiculos.placa }).from(veiculos).where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.id, id)));
+      // FOR UPDATE: quem grava a placa ao mesmo tempo termina antes, e a leitura já vê a placa (senão o UPDATE abaixo a apagaria)
+      const [atual] = await tx.select({ placa: veiculos.placa }).from(veiculos).where(and(eq(veiculos.tenantId, ctx.tenantId), eq(veiculos.id, id))).for('update');
       if (!atual) throw naoEncontrado('Veículo');
       if (atual.placa) throw placaObrigatoria();
     }

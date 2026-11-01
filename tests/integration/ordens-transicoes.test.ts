@@ -1,14 +1,15 @@
 import { asc, eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { getDatabase } from '@/lib/db/client';
-import { membros, ordensServico, osEventos } from '@/lib/db/schema';
+import { caixas, membros, ordensServico, osEventos, pagamentos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import type { TenantContext } from '@/lib/auth/types';
 import { atribuirResponsavelAction, listarLavadoresAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
+import { estornarPagamento } from '@/modules/caixa/caixa.service';
 import { transitarOs } from '@/modules/ordens/ordens.service';
 import { createAuthFixtures, type AuthFixtures } from '../helpers/auth';
 import { withTestDatabase } from '../helpers/db';
-import { criarMembro, criarOs, semearVeiculo, sessaoLavador, sessaoStaff } from '../helpers/ordens';
+import { criarMembro, criarOs, pagar, semearVeiculo, sessaoLavador, sessaoStaff } from '../helpers/ordens';
 
 const req = vi.hoisted(() => ({ headers: new Headers() }));
 vi.mock('next/headers', () => ({ headers: async () => req.headers }));
@@ -139,6 +140,7 @@ describe('transitarOsAction', () => {
       // com responsável: pronto e entregue preenchem os horários
       const e = await os({ status: 'em_lavagem', responsavelId: f.a.membros.lavador.memberId });
       expect(await transitarOsAction({ osId: e.id, esperado: 'em_lavagem', para: 'pronto' })).toMatchObject({ ok: true, data: { status: 'pronto', prontoEm: expect.any(Date) } });
+      await pagar(db, { tenantId: f.a.tenantId, osId: e.id, recebidoPor: f.a.membros.gerente.memberId });
       expect(await transitarOsAction({ osId: e.id, esperado: 'pronto', para: 'entregue' })).toMatchObject({ ok: true, data: { status: 'entregue', entregueEm: expect.any(Date) } });
       expect((await eventos(db, e.id)).map((x) => [x.de, x.para, x.membroId])).toEqual([
         ['em_lavagem', 'pronto', f.a.membros.gerente.memberId],
@@ -213,15 +215,66 @@ describe('transitarOsAction', () => {
       expect((await eventos(db, o.id)).length).toBe(1);
     }));
 
-  it('entregue não reabre', () =>
+  it('entregue só volta para pronto (Reabrir)', () =>
     run(async ({ db, f, os }) => {
       const o = await os({ status: 'entregue', responsavelId: f.a.membros.lavador.memberId });
       await como(f, f.a.membros.dono.userId);
-      for (const para of ['pronto', 'em_lavagem', 'cancelada'] as const) {
+      for (const para of ['em_lavagem', 'cancelada'] as const) {
         expect(await transitarOsAction({ osId: o.id, esperado: 'entregue', para, motivo: 'x' })).toEqual({ ok: false, code: 'OS_ENCERRADA', message: 'OS entregue não pode ser alterada.' });
       }
       expect(await atribuirResponsavelAction({ osId: o.id, membroId: null })).toMatchObject({ ok: false, code: 'OS_ENCERRADA' });
       expect(await linha(db, o.id)).toMatchObject({ status: 'entregue', responsavelId: f.a.membros.lavador.memberId });
+    }));
+
+  it('entregar exige quitação: falta receber, estornado não conta, quitada entrega; total zero entrega sem caixa', () =>
+    run(async ({ db, f, os }) => {
+      const lav = f.a.membros.lavador.memberId;
+      await como(f, f.a.membros.recepcao.userId);
+      const zero = await os({ status: 'pronto', responsavelId: lav });
+      await db.update(ordensServico).set({ totalCentavos: 0 }).where(eq(ordensServico.id, zero.id));
+      expect(await transitarOsAction({ osId: zero.id, esperado: 'pronto', para: 'entregue' })).toMatchObject({ ok: true, data: { status: 'entregue' } });
+      expect(await db.select().from(caixas)).toEqual([]);
+
+      const o = await os({ status: 'pronto', responsavelId: lav });
+      const entregar = () => transitarOsAction({ osId: o.id, esperado: 'pronto', para: 'entregue' });
+      expect(await entregar()).toEqual({ ok: false, code: 'NAO_QUITADA', message: 'Falta receber R$ 50,00.' });
+      const p = await pagar(db, { tenantId: f.a.tenantId, osId: o.id, recebidoPor: f.a.membros.recepcao.memberId, valorCentavos: 3000 });
+      expect(await entregar()).toEqual({ ok: false, code: 'NAO_QUITADA', message: 'Falta receber R$ 20,00.' });
+      await pagar(db, { tenantId: f.a.tenantId, osId: o.id, recebidoPor: f.a.membros.recepcao.memberId, valorCentavos: 2000 });
+      await db.update(pagamentos).set({ estornadoEm: new Date(), estornadoPor: f.a.membros.gerente.memberId, motivoEstorno: 'x' }).where(eq(pagamentos.id, p.id));
+      expect(await entregar()).toEqual({ ok: false, code: 'NAO_QUITADA', message: 'Falta receber R$ 30,00.' });
+      expect(await linha(db, o.id)).toMatchObject({ status: 'pronto', entregueEm: null });
+      await pagar(db, { tenantId: f.a.tenantId, osId: o.id, recebidoPor: f.a.membros.recepcao.memberId, valorCentavos: 3000 });
+      expect(await entregar()).toMatchObject({ ok: true, data: { status: 'entregue', entregueEm: expect.any(Date), pagoCentavos: 5000 } });
+    }));
+
+  it('cancelar com pagamento ativo é recusado; depois do estorno cancela', () =>
+    run(async ({ db, f, os }) => {
+      const o = await os();
+      const p = await pagar(db, { tenantId: f.a.tenantId, osId: o.id, recebidoPor: f.a.membros.recepcao.memberId, valorCentavos: 1000 });
+      await como(f, f.a.membros.gerente.userId);
+      const cancelar = () => transitarOsAction({ osId: o.id, esperado: 'aguardando', para: 'cancelada', motivo: 'desistiu' });
+      expect(await cancelar()).toEqual({ ok: false, code: 'TEM_PAGAMENTO', message: 'Estorne os pagamentos antes de cancelar.' });
+      const ger = { tenantId: f.a.tenantId, userId: f.a.membros.gerente.userId, memberId: f.a.membros.gerente.memberId, perfil: 'gerente', sessionId: 'x' } as TenantContext;
+      await estornarPagamento(ger, { pagamentoId: p.id, motivo: 'devolvido' }, db);
+      expect(await cancelar()).toMatchObject({ ok: true, data: { status: 'cancelada', pagoCentavos: 0 } });
+    }));
+
+  it('Reabrir entregue→pronto: os:reabrir com motivo, limpa entregueEm, registra evento e libera o estorno', () =>
+    run(async ({ db, f, os }) => {
+      const prontoEm = new Date(Date.now() - 3600_000);
+      const o = await os({ status: 'entregue', responsavelId: f.a.membros.lavador.memberId, prontoEm, entregueEm: new Date() });
+      const p = await pagar(db, { tenantId: f.a.tenantId, osId: o.id, recebidoPor: f.a.membros.recepcao.memberId });
+      const reabrir = (motivo?: string) => transitarOsAction({ osId: o.id, esperado: 'entregue', para: 'pronto', motivo });
+      await como(f, f.a.membros.recepcao.userId);
+      expect(await negado(() => reabrir('cliente voltou'))).toEqual(ACESSO_NEGADO);
+      await como(f, f.a.membros.gerente.userId);
+      expect(await reabrir()).toMatchObject({ ok: false, code: 'VALIDACAO', fieldErrors: { motivo: ['Informe o motivo.'] } });
+      expect(await linha(db, o.id)).toMatchObject({ status: 'entregue' });
+      expect(await reabrir(' cobrou errado ')).toMatchObject({ ok: true, data: { status: 'pronto', entregueEm: null, prontoEm } });
+      expect(await eventos(db, o.id)).toEqual([{ tipo: 'status', de: 'entregue', para: 'pronto', membroId: f.a.membros.gerente.memberId, motivo: 'cobrou errado' }]);
+      const ger = { tenantId: f.a.tenantId, userId: f.a.membros.gerente.userId, memberId: f.a.membros.gerente.memberId, perfil: 'gerente', sessionId: 'x' } as TenantContext;
+      expect(await estornarPagamento(ger, { pagamentoId: p.id, motivo: 'cobrou errado' }, db)).toEqual({ saldoCentavos: 5000 });
     }));
 
   it('recepcao recebe acesso negado em os:assumir', () =>

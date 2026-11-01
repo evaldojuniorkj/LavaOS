@@ -8,7 +8,9 @@ import { getDatabase } from '@/lib/db/client';
 import { ordensServico, osContadores, osEventos, osItens } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { publicar } from '@/lib/realtime/publicar';
-import { INT4_MAX } from '@/modules/catalogo/catalogo.rules';
+import { pagamentosDaOs } from '@/modules/caixa/caixa.repo';
+import { saldoOs } from '@/modules/caixa/caixa.rules';
+import { formatarReais, INT4_MAX } from '@/modules/catalogo/catalogo.rules';
 import { buscarVeiculo, carregarOs, itensDaOs, lavadorAtivo, servicosComPreco } from './ordens.repo';
 import { calcularTotais, decidirTransicao, validarSelecaoServicos, type StatusOs } from './ordens.rules';
 import type { abrirOsSchema, ajustarValorSchema, editarItensSchema } from './ordens.schemas';
@@ -17,7 +19,7 @@ import { toOsView, type OsView } from './ordens.views';
 /** Recusa de regra com mensagem segura para a tela; `fieldErrors` aponta o campo. */
 export class OrdensError extends Error {
   constructor(
-    readonly code: 'VALIDACAO' | 'NAO_ENCONTRADO' | 'OS_ENCERRADA' | 'TRANSICAO_INVALIDA' | 'SEM_RESPONSAVEL' | 'NAO_E_RESPONSAVEL',
+    readonly code: 'VALIDACAO' | 'NAO_ENCONTRADO' | 'OS_ENCERRADA' | 'TRANSICAO_INVALIDA' | 'SEM_RESPONSAVEL' | 'NAO_E_RESPONSAVEL' | 'NAO_QUITADA' | 'TEM_PAGAMENTO' | 'ABAIXO_DO_PAGO',
     message: string,
     readonly fieldErrors?: Record<string, string[]>,
   ) {
@@ -99,7 +101,7 @@ export async function abrirOs(ctx: TenantContext, input: z.output<typeof abrirOs
     await tx.insert(osEventos).values({ tenantId: ctx.tenantId, osId: os.id, tipo: 'status', para: 'aguardando', membroId: ctx.memberId });
     await publicar(tx, { tenantId: ctx.tenantId, osId: os.id, tipo: 'os_criada' });
     return toOsView(ctx.perfil, (await carregarOs(ctx, os.id, tx))!);
-  });
+  }, 'Muitas aberturas ao mesmo tempo. Tente novamente.'); // o lock esperado é o do contador do tenant, não o de uma OS
 }
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -107,7 +109,7 @@ const ENCERRADOS: StatusOs[] = ['entregue', 'cancelada'];
 const naoEncontrada = () => new OrdensError('NAO_ENCONTRADO', 'OS não encontrada.');
 const encerrada = (status: StatusOs) => new OrdensError('OS_ENCERRADA', `OS ${status} não pode ser alterada.`);
 
-async function emTransacao<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> {
+async function emTransacao<T>(db: Database, fn: (tx: Tx) => Promise<T>, ocupado = 'Essa OS está sendo alterada. Tente novamente.'): Promise<T> {
   try {
     return await db.transaction(async (tx) => {
       await tx.execute(sql`set local lock_timeout = '5s'`);
@@ -115,7 +117,7 @@ async function emTransacao<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise
     });
   } catch (err) {
     const pg = ((err as { cause?: unknown }).cause ?? err) as { code?: string }; // o Drizzle embrulha o erro do pg em `cause`
-    if (pg.code === '55P03') throw new ConflitoOsError('Essa OS está sendo alterada. Tente novamente.');
+    if (pg.code === '55P03') throw new ConflitoOsError(ocupado);
     throw err;
   }
 }
@@ -139,6 +141,11 @@ async function travarOs(tx: Tx, ctx: TenantContext, id: string) {
   if (!os) throw naoEncontrada(); // inclui OS de outro tenant: nada é revelado
   return os;
 }
+
+/** Com a OS já travada: `receber` trava a OS antes de gravar, então a soma não muda até o commit. */
+const pagoAtivo = async (tx: Tx, ctx: TenantContext, osId: string) =>
+  (await pagamentosDaOs(ctx, osId, tx)).reduce((a, p) => (p.estornadoEm ? a : a + p.valorCentavos), 0);
+const abaixoDoPago = (pago: number) => new OrdensError('ABAIXO_DO_PAGO', `Já foram pagos ${formatarReais(pago)}. O total não pode ficar abaixo disso.`);
 
 const view = async (tx: Tx, ctx: TenantContext, id: string) => toOsView(ctx.perfil, (await carregarOs(ctx, id, tx))!);
 
@@ -190,6 +197,13 @@ export async function transitarOs(
     if (explicito && !(await lavadorAtivo(ctx, i.responsavelId!, tx))) throw erroCampo('responsavelId', 'Escolha um lavador ativo.');
     // Pegar de lavador: a desativação pode ter ocorrido depois de o contexto ser emitido
     if (inicio && !explicito && ctx.perfil === 'lavador' && !(await lavadorAtivo(ctx, ctx.memberId, tx))) throw erroCampo('responsavelId', 'Escolha um lavador ativo.');
+    if (i.para === 'entregue' || i.para === 'cancelada') {
+      const pago = await pagoAtivo(tx, ctx, os.id);
+      const falta = saldoOs(os.totalCentavos, [pago]);
+      if (i.para === 'entregue' && falta > 0) throw new OrdensError('NAO_QUITADA', `Falta receber ${formatarReais(falta)}.`);
+      if (i.para === 'cancelada' && pago > 0) throw new OrdensError('TEM_PAGAMENTO', 'Estorne os pagamentos antes de cancelar.');
+    }
+    const reabrir = os.status === 'entregue';
 
     const responsavelId = d.limpaResponsavel ? null : explicito ? i.responsavelId! : inicio ? (os.responsavelId ?? ctx.memberId) : os.responsavelId;
     const agora = sql`now()`;
@@ -200,8 +214,9 @@ export async function transitarOs(
         ...(responsavelId !== os.responsavelId && { responsavelId, atribuidoEm: responsavelId ? agora : null }),
         ...(inicio && { inicioLavagemEm: agora }),
         ...(i.para === 'aguardando' && { inicioLavagemEm: null }), // correção: o tempo de lavagem recomeça no próximo início
-        ...(i.para === 'pronto' && { prontoEm: agora }),
+        ...(i.para === 'pronto' && !reabrir && { prontoEm: agora }), // reabrir mantém a hora em que ficou pronto
         ...(i.para === 'entregue' && { entregueEm: agora }),
+        ...(reabrir && { entregueEm: null }),
         ...(i.para === 'cancelada' && { canceladaEm: agora, motivoCancelamento: i.motivo }),
       })
       .where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, os.id), eq(ordensServico.status, i.esperado)))
@@ -250,6 +265,9 @@ export async function editarItens(ctx: TenantContext, i: z.output<typeof editarI
     const novos = i.adicionar.length ? await servicosComPreco(ctx, i.adicionar, veiculo.porteId, tx) : [];
     if (novos.length !== i.adicionar.length) throw erroCampo('adicionar', 'Serviço indisponível para o porte do veículo.');
     if (!validarSelecaoServicos([...ficam.map((a) => ({ id: a.servicoId, adicional: a.adicional })), ...novos]).ok) throw erroCampo('remover', 'A OS precisa de ao menos um serviço principal.');
+    const totais = cabeNoBanco(calcularTotais({ valoresItens: [...ficam.map((a) => a.valorCentavos), ...novos.map((s) => s.valorCentavos)], descontoCentavos: os.descontoCentavos, acrescimoCentavos: os.acrescimoCentavos }));
+    const pago = await pagoAtivo(tx, ctx, os.id);
+    if (totais.totalCentavos < pago) throw abaixoDoPago(pago);
 
     if (i.remover.length) await tx.delete(osItens).where(and(eq(osItens.tenantId, ctx.tenantId), eq(osItens.osId, os.id), inArray(osItens.id, i.remover)));
     if (novos.length) {
@@ -257,7 +275,6 @@ export async function editarItens(ctx: TenantContext, i: z.output<typeof editarI
         novos.map((s) => ({ tenantId: ctx.tenantId, osId: os.id, servicoId: s.id, porteId: veiculo.porteId, nomeServico: s.nome, valorCentavos: s.valorCentavos, comissaoTipo: s.comissaoTipo, comissaoValor: s.comissaoValor })),
       );
     }
-    const totais = cabeNoBanco(calcularTotais({ valoresItens: [...ficam.map((a) => a.valorCentavos), ...novos.map((s) => s.valorCentavos)], descontoCentavos: os.descontoCentavos, acrescimoCentavos: os.acrescimoCentavos }));
     await tx.update(ordensServico).set(totais).where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, os.id)));
     await tx.insert(osEventos).values({ tenantId: ctx.tenantId, osId: os.id, tipo: 'itens', de: removidos.length ? json(removidos) : null, para: novos.length ? json(novos.map((n) => ({ nome: n.nome, valorCentavos: n.valorCentavos }))) : null, membroId: ctx.memberId });
     await publicar(tx, { tenantId: ctx.tenantId, osId: os.id, tipo: 'itens' });
@@ -272,6 +289,8 @@ export async function ajustarValor(ctx: TenantContext, i: z.output<typeof ajusta
     const os = await travarOs(tx, ctx, i.osId);
     if (ENCERRADOS.includes(os.status)) throw encerrada(os.status);
     const totais = cabeNoBanco(calcularTotais({ valoresItens: [os.subtotalCentavos], descontoCentavos: i.descontoCentavos, acrescimoCentavos: i.acrescimoCentavos }));
+    const pago = await pagoAtivo(tx, ctx, os.id);
+    if (totais.totalCentavos < pago) throw abaixoDoPago(pago);
     await tx
       .update(ordensServico)
       .set({ descontoCentavos: i.descontoCentavos, acrescimoCentavos: i.acrescimoCentavos, totalCentavos: totais.totalCentavos })
