@@ -113,6 +113,6 @@ describe('requirePermission', () => {
       await expect(dono.requirePermission(headers, 'equipe:gerenciar_lideranca')).resolves.toMatchObject({ perfil: 'dono' });
       await expect(gerente.requirePermission(headers, 'equipe:gerenciar')).resolves.toBeDefined();
       await expect(gerente.requirePermission(headers, 'equipe:gerenciar_lideranca')).rejects.toThrow('acesso negado');
-      await expect(dono.requirePermission(headers, 'caixa:operar')).rejects.toThrow('acesso negado');
+      await expect(dono.requirePermission(headers, 'relatorios:ver')).rejects.toThrow('acesso negado');
     }));
 });

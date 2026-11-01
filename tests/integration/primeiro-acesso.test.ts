@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import { verifySecret } from '@/lib/auth/credentials';
 import { requireTenantContext } from '@/lib/auth/context';
 import { getDatabase } from '@/lib/db/client';
-import { account, lavaJatos, membros, portes, precos, servicos, user } from '@/lib/db/schema';
+import { account, categoriasDespesa, lavaJatos, membros, portes, precos, servicos, user } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { createMemberAction } from '@/modules/equipe/equipe.actions';
 import { primeiroAcessoAction } from '@/modules/lava-jato/primeiro-acesso.actions';
@@ -79,6 +79,10 @@ describe('primeiro acesso', () => {
       ]);
       for (const s of exemplos) expect(s).toMatchObject({ tenantId, ativo: false, comissaoTipo: 'fixo', comissaoValor: 0 });
       expect(await db.select().from(precos)).toEqual([]);
+      expect(await db.select({ nome: categoriasDespesa.nome, sistema: categoriasDespesa.sistema, tenantId: categoriasDespesa.tenantId }).from(categoriasDespesa)).toEqual(
+        expect.arrayContaining(['Produtos', 'Água e luz', 'Aluguel', 'Vales', 'Outros'].map((nome) => ({ nome, sistema: false, tenantId })).concat({ nome: 'Comissões', sistema: true, tenantId })),
+      );
+      expect(await db.select().from(categoriasDespesa)).toHaveLength(6);
 
       // lavador criado depois pelo dono entra por PIN: o slug do tenant é o do piloto
       req.headers = http.headers();

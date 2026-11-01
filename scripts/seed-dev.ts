@@ -8,6 +8,7 @@
 import { hashPassword } from 'better-auth/crypto';
 import pg from 'pg';
 import { z } from 'zod';
+import { CATEGORIAS_PADRAO } from '../src/modules/despesas/categorias-padrao.ts';
 import { createMemberSchema } from '../src/modules/equipe/equipe.schemas.ts';
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
@@ -74,6 +75,9 @@ try {
     const { rows: [u] } = await client.query('insert into "user" (name, email) values ($1, $2) returning id', [dono.data.nomeExibicao, dono.data.email]);
     await client.query(`insert into account (user_id, account_id, provider_id, password) values ($1, $2, 'credential', $3)`, [u.id, u.id, await hashPassword(dono.data.senha)]);
     await client.query(`insert into membros (tenant_id, user_id, perfil, nome_exibicao) values ($1, $2, 'dono', $3)`, [t.id, u.id, dono.data.nomeExibicao]);
+    for (const c of CATEGORIAS_PADRAO) {
+      await client.query('insert into categorias_despesa (tenant_id, nome, sistema) values ($1, $2, $3) on conflict (tenant_id, nome) do nothing', [t.id, c.nome, c.sistema]);
+    }
     await client.query('commit');
     console.log(`seed-dev: tenant "${tenant.data.slug}" e dono ${dono.data.email} criados.`);
   }

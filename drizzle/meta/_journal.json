@@ -36,6 +36,13 @@
       "when": 1793389846307,
       "tag": "0004_amazing_morgan_stark",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793493852269,
+      "tag": "0005_financeiro",
+      "breakpoints": true
     }
   ]
 }

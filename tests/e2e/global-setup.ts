@@ -1,7 +1,7 @@
 /**
  * Zera lavaos_test, aplica as migrations e cria o tenant do piloto E2E com dono/gerente/recepção/lavador.
  * Segredos gerados por execução e entregues aos workers só por process.env (nada em disco ou log).
- * Sem imports de src/: lá tudo é server-only.
+ * Sem imports de src/ (lá tudo é server-only), salvo constantes sem dependências.
  */
 import { randomInt, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -9,6 +9,7 @@ import { hashPassword } from 'better-auth/crypto';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import pg from 'pg';
+import { CATEGORIAS_PADRAO } from '../../src/modules/despesas/categorias-padrao';
 import { assertTestDb, testUrls, travarLavaosTest } from '../helpers/test-db';
 
 export const E2E_PILOT_SLUG = 'e2e';
@@ -35,6 +36,7 @@ export default async function globalSetup() {
     const {
       rows: [t],
     } = await pool.query('insert into lava_jatos (nome, slug) values ($1, $2) returning id', ['Lava Jato E2E', E2E_PILOT_SLUG]);
+    for (const c of CATEGORIAS_PADRAO) await pool.query('insert into categorias_despesa (tenant_id, nome, sistema) values ($1, $2, $3)', [t.id, c.nome, c.sistema]);
     for (const perfil of ['dono', 'gerente', 'recepcao', 'lavador'] as const) {
       const nome = `${perfil[0].toUpperCase()}${perfil.slice(1)} E2E`;
       const id = randomUUID();
