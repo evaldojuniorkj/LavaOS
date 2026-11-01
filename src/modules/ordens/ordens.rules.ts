@@ -2,7 +2,7 @@ import { can } from '@/lib/auth/permissions';
 import type { Perfil, Permissao } from '@/lib/auth/types';
 
 /** Erros após os quais a UI deve recarregar a fila (a OS mudou sob os pés do usuário). */
-export const ERROS_RECARREGAR_FILA = ['CONFLITO_OS', 'NAO_E_RESPONSAVEL', 'OS_ENCERRADA'] as const;
+export const ERROS_RECARREGAR_FILA = ['CONFLITO_OS', 'NAO_E_RESPONSAVEL', 'OS_ENCERRADA', 'NAO_QUITADA'] as const; // NAO_QUITADA: tela velha mostrava Entregar sem a OS estar paga
 
 export type StatusOs = 'aguardando' | 'em_lavagem' | 'pronto' | 'entregue' | 'cancelada';
 

@@ -152,6 +152,8 @@ describe('leitura da fila', () => {
       await ver(transitarOsAction({ osId: entregue.id, esperado: 'entregue', para: 'em_lavagem' }));
       const aguardando = await os();
       await ver(transitarOsAction({ osId: aguardando.id, esperado: 'pronto', para: 'entregue' }));
+      const semPagar = await os({ status: 'pronto', responsavelId: f.a.membros.gerente.memberId });
+      await ver(transitarOsAction({ osId: semPagar.id, esperado: 'pronto', para: 'entregue' }));
       const outra = await os({ status: 'em_lavagem', responsavelId: f.a.membros.gerente.memberId });
       req.headers = await sessaoLavador(f);
       await ver(transitarOsAction({ osId: outra.id, esperado: 'em_lavagem', para: 'pronto' }));
