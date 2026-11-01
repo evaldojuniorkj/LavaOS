@@ -1,8 +1,8 @@
 import 'server-only';
 
-export const TIPOS_EVENTO = ['os_criada', 'status', 'responsavel', 'itens', 'valor'] as const;
-/** Só ids e tipo: cada cliente recarrega a própria visão (filtrada por perfil) ao receber. */
-export type Evento = { tenantId: string; osId: string; tipo: (typeof TIPOS_EVENTO)[number] };
+export const TIPOS_EVENTO = ['os_criada', 'status', 'responsavel', 'itens', 'valor', 'pagamento', 'caixa'] as const;
+/** Só ids e tipo: cada cliente recarrega a própria visão (filtrada por perfil) ao receber. Sem `osId` (caixa): só para quem assina o tenant inteiro. */
+export type Evento = { tenantId: string; osId?: string; tipo: (typeof TIPOS_EVENTO)[number] };
 /** `resync`: eventos podem ter sido perdidos (LISTEN reconectou); todos recarregam. */
 export type Mensagem = Evento | { tipo: 'resync' };
 type Assinante = { filtro: { tenantId: string; osId?: string }; enviar: (m: Mensagem) => void };
