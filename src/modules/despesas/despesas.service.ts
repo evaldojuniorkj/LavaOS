@@ -4,7 +4,7 @@ import type { z } from 'zod';
 import { assertPermission } from '@/lib/auth/permissions';
 import type { TenantContext } from '@/lib/auth/types';
 import { getDatabase } from '@/lib/db/client';
-import { categoriasDespesa, despesas } from '@/lib/db/schema';
+import { acertosComissao, categoriasDespesa, despesas, vales } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { publicar } from '@/lib/realtime/publicar';
 import { dataDoCaixa } from '@/modules/caixa/caixa.rules';
@@ -15,7 +15,7 @@ import type { cancelarDespesaSchema, lancarDespesaSchema, marcarComoPagaSchema, 
 /** Recusa de regra com mensagem segura para a tela; `fieldErrors` aponta o campo. */
 export class DespesasError extends Error {
   constructor(
-    readonly code: 'VALIDACAO' | 'NAO_ENCONTRADO' | 'JA_PAGA' | 'CANCELADA' | 'JA_CANCELADA' | 'CAIXA_FECHADO' | 'CATEGORIA_SISTEMA',
+    readonly code: 'VALIDACAO' | 'NAO_ENCONTRADO' | 'JA_PAGA' | 'CANCELADA' | 'JA_CANCELADA' | 'CAIXA_FECHADO' | 'CATEGORIA_SISTEMA' | 'DE_COMISSAO',
     message: string,
     readonly fieldErrors?: Record<string, string[]>,
   ) {
@@ -90,7 +90,14 @@ export async function marcarComoPaga(ctx: TenantContext, i: z.output<typeof marc
 
 /** Saída do caixa só cancela com o caixa ainda aberto: a trava FOR SHARE faz um fechamento concorrente ver o cancelamento. */
 export async function cancelarDespesa(ctx: TenantContext, i: z.output<typeof cancelarDespesaSchema>, db: Database = getDatabase(), agora = new Date()): Promise<Despesa> {
-  return emTransacao(db, (tx) => cancelarDespesaTx(tx, ctx, i, agora));
+  assertPermission(ctx, 'despesas:gerenciar');
+  return emTransacao(db, async (tx) => {
+    // o vale cancela junto com a despesa só por Comissões; o acerto é dinheiro pago e vincula comissões, então não cancela
+    const ligada = (t: typeof vales | typeof acertosComissao) => tx.select({ id: t.id }).from(t).where(and(eq(t.tenantId, ctx.tenantId), eq(t.despesaId, i.despesaId))).limit(1);
+    if ((await ligada(vales)).length) throw new DespesasError('DE_COMISSAO', 'Cancele pelo vale em Comissões.');
+    if ((await ligada(acertosComissao)).length) throw new DespesasError('DE_COMISSAO', 'Despesa de acerto de comissão não pode ser cancelada.');
+    return cancelarDespesaTx(tx, ctx, i, agora);
+  });
 }
 
 export async function cancelarDespesaTx(tx: Tx, ctx: TenantContext, i: z.output<typeof cancelarDespesaSchema>, agora = new Date()): Promise<Despesa> {
@@ -109,7 +116,7 @@ export async function cancelarDespesaTx(tx: Tx, ctx: TenantContext, i: z.output<
   return c;
 }
 
-/** Categoria de sistema ("Comissões", usada pela Fase 5) não é renomeada nem desativada. */
+/** Categoria de sistema ("Vales" e "Comissões", usadas pela Fase 5) não é renomeada nem desativada. */
 export async function salvarCategoria(ctx: TenantContext, { id, ...dados }: z.output<typeof salvarCategoriaSchema>, db: Database = getDatabase()): Promise<Categoria> {
   assertPermission(ctx, 'despesas:gerenciar');
   const onde = (catId: string) => and(eq(categoriasDespesa.tenantId, ctx.tenantId), eq(categoriasDespesa.id, catId));

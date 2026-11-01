@@ -91,7 +91,7 @@ describe('despesas', () => {
       expect(await resumoDoCaixa(ger, caixa.id, db)).toMatchObject({ esperadoDinheiro: 1000 });
     }));
 
-  it('categorias: cria, renomeia e desativa; "Comissões" travada; nome duplicado vira erro de campo; inativa não recebe lançamento', () =>
+  it('categorias: cria, renomeia e desativa; "Comissões" e "Vales" travadas; nome duplicado vira erro de campo; inativa não recebe lançamento', () =>
     run(async ({ db, ger, cat }) => {
       const nova = await salvarCategoria(ger, { nome: 'Manutenção' }, db);
       expect(nova).toMatchObject({ nome: 'Manutenção', ativo: true, sistema: false });
@@ -100,6 +100,9 @@ describe('despesas', () => {
       const comissoes = await cat('Comissões');
       await expect(salvarCategoria(ger, { id: comissoes, nome: 'Comissões', ativo: false }, db)).rejects.toMatchObject({ code: 'CATEGORIA_SISTEMA' });
       await expect(salvarCategoria(ger, { id: comissoes, nome: 'Bônus' }, db)).rejects.toMatchObject({ code: 'CATEGORIA_SISTEMA' });
+      const vales = await cat('Vales');
+      await expect(salvarCategoria(ger, { id: vales, nome: 'Vales', ativo: false }, db)).rejects.toMatchObject({ code: 'CATEGORIA_SISTEMA' });
+      await expect(salvarCategoria(ger, { id: vales, nome: 'Adiantamentos' }, db)).rejects.toMatchObject({ code: 'CATEGORIA_SISTEMA' });
       await expect(salvarCategoria(ger, { nome: 'Vales' }, db)).rejects.toMatchObject({ code: 'VALIDACAO', fieldErrors: { nome: ['Já existe uma categoria com esse nome.'] } });
       await expect(salvarCategoria(ger, { id: nova.id, nome: 'Vales' }, db)).rejects.toMatchObject({ code: 'VALIDACAO', fieldErrors: { nome: expect.any(Array) } });
       expect((await listarCategorias(ger, db)).map((c) => c.nome)).toContain('Reparos');

@@ -9,6 +9,8 @@ import { resumoDoCaixa } from '@/modules/caixa/caixa.repo';
 import { cancelarValeAction, lancarValeAction, pagarAcertoAction } from '@/modules/comissoes/comissoes.actions';
 import { acertosDoMembro, detalheAcerto, pendentesPorMembro } from '@/modules/comissoes/comissoes.repo';
 import { cancelarVale, lancarVale, pagarAcerto, previaAcerto } from '@/modules/comissoes/comissoes.service';
+import { listarDespesas } from '@/modules/despesas/despesas.repo';
+import { cancelarDespesa, lancarDespesa } from '@/modules/despesas/despesas.service';
 import { createAuthFixtures, type AuthFixtures } from '../helpers/auth';
 import type { TenantFixture } from '../helpers/fixtures';
 import { withTestDatabase } from '../helpers/db';
@@ -95,6 +97,20 @@ describe('vales e acerto', () => {
       expect(todas.reduce((s, d) => s + d.v, 0)).toBe(1550 + 930 + 700 + 12345);
       expect((await db.select().from(vales)).every((v) => v.acertoId)).toBe(true);
       expect((await db.select().from(comissoes)).every((c) => c.acertoId)).toBe(true);
+    }));
+
+  it('despesa de vale ou de acerto não cancela pela tela de despesas e vem marcada', () =>
+    run(async ({ db, ger, lav, comissao }) => {
+      await comissao(20000);
+      const v = await lancarVale(ger, { membroId: lav, valorCentavos: 5000 }, db);
+      await expect(cancelarDespesa(ger, { despesaId: v.despesaId, motivo: 'x' }, db)).rejects.toMatchObject({ code: 'DE_COMISSAO', message: 'Cancele pelo vale em Comissões.' });
+      const a = await pagarAcerto(ger, { membroId: lav, ate: hoje }, db);
+      await expect(cancelarDespesa(ger, { despesaId: a.despesaId!, motivo: 'x' }, db)).rejects.toMatchObject({ code: 'DE_COMISSAO', message: 'Despesa de acerto de comissão não pode ser cancelada.' });
+      const [outros] = await db.select({ id: categoriasDespesa.id }).from(categoriasDespesa).where(and(eq(categoriasDespesa.tenantId, ger.tenantId), eq(categoriasDespesa.nome, 'Outros')));
+      await lancarDespesa(ger, { categoriaId: outros.id, descricao: 'Sabão', valorCentavos: 100, pagoEm: hoje }, db);
+      const lista = await listarDespesas(ger, { de: hoje, ate: hoje }, db);
+      expect(lista.map((d) => [d.descricao, d.deComissao]).sort()).toEqual([['Acerto de lavador', true], ['Sabão', false], ['Vale de lavador', true]]);
+      expect((await despesasDe(db, 'Vales'))[0].cancelada).toBeNull();
     }));
 
   it('vale e acerto com dinheiro do caixa reduzem o esperado', () =>
