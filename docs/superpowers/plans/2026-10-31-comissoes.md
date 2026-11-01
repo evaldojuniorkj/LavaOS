@@ -60,7 +60,7 @@
 
 **Files:** `src/modules/comissoes/comissoes.service.ts` (`gerarComissoes(tx, ctx, osId)`, `removerComissoesPendentes(tx, ctx, osId)`), `src/modules/ordens/ordens.service.ts` (`transitarOs` chama os dois). **Test:** `tests/integration/comissoes-geracao.test.ts`, `ordens-transicoes.test.ts`.
 
-- [ ] Testes que falham: entregar gera uma comissão por item para o responsável, com bases e valores das regras; OS de total zero com item fixo gera o fixo; reabrir apaga as pendentes; entregar de novo regera sem duplicar; reabrir com comissão em acerto (semeado direto) é recusado e nada muda; responsável trocado entre reabertura e nova entrega recebe a nova comissão → implementar → commit `feat(comissoes): geração na entrega e remoção na reabertura`.
+- [x] Testes que falham: entregar gera uma comissão por item para o responsável, com bases e valores das regras; OS de total zero com item fixo gera o fixo; reabrir apaga as pendentes; entregar de novo regera sem duplicar; reabrir com comissão em acerto (semeado direto) é recusado e nada muda; responsável trocado entre reabertura e nova entrega recebe a nova comissão → implementar → commit `feat(comissoes): geração na entrega e remoção na reabertura`.
 
 ### Task 4: Vales e acerto
 

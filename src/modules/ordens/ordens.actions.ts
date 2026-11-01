@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/auth/context';
 import { AcessoNegadoError } from '@/lib/auth/permissions';
 import type { Permissao, TenantContext } from '@/lib/auth/types';
 import type { ActionResult } from '@/modules/catalogo/catalogo.actions';
+import { ComissoesError } from '@/modules/comissoes/comissoes.service';
 import { listarEntreguesHoje, listarFila, listarLavadoresParaDirecionar, obterOs } from './ordens.repo';
 import { abrirOsSchema, obterOsSchema, ajustarValorSchema, atribuirResponsavelSchema, editarItensSchema, transitarOsSchema } from './ordens.schemas';
 import { abrirOs, ajustarValor, atribuirResponsavel, ConflitoOsError, editarItens, OrdensError, transitarOs } from './ordens.service';
@@ -23,6 +24,7 @@ async function executar<S extends z.ZodType, T>(permissao: Permissao, schema: S,
   } catch (err) {
     if (err instanceof AcessoNegadoError) return { ok: false, code: 'ACESSO_NEGADO', message: 'acesso negado' }; // já registrado por requirePermission ou pelo serviço
     if (err instanceof ConflitoOsError) return { ok: false, code: err.code, message: err.message };
+    if (err instanceof ComissoesError) return { ok: false, code: err.code, message: err.message }; // reabrir OS com comissão já acertada
     if (err instanceof OrdensError) return { ok: false, code: err.code, message: err.message, ...(err.fieldErrors && { fieldErrors: err.fieldErrors }) };
     console.error('[ordens] falha inesperada', { erro: err instanceof Error ? err.name : typeof err });
     return { ok: false, code: 'ERRO_INTERNO', message: 'Não foi possível concluir. Tente novamente.' };

@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { getDatabase } from '@/lib/db/client';
-import { caixas, membros, ordensServico, osEventos, pagamentos } from '@/lib/db/schema';
+import { acertosComissao, caixas, comissoes, membros, ordensServico, osEventos, osItens, pagamentos, servicos, veiculos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import type { TenantContext } from '@/lib/auth/types';
 import { atribuirResponsavelAction, listarLavadoresAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
@@ -275,6 +275,23 @@ describe('transitarOsAction', () => {
       expect(await eventos(db, o.id)).toEqual([{ tipo: 'status', de: 'entregue', para: 'pronto', membroId: f.a.membros.gerente.memberId, motivo: 'cobrou errado' }]);
       const ger = { tenantId: f.a.tenantId, userId: f.a.membros.gerente.userId, memberId: f.a.membros.gerente.memberId, perfil: 'gerente', sessionId: 'x' } as TenantContext;
       expect(await estornarPagamento(ger, { pagamentoId: p.id, motivo: 'cobrou errado' }, db)).toEqual({ saldoCentavos: 5000 });
+    }));
+
+  it('Reabrir com comissão já acertada chega à tela com a data do acerto', () =>
+    run(async ({ db, f, veiculoId, os }) => {
+      const lav = f.a.membros.lavador.memberId;
+      const o = await os({ status: 'entregue', responsavelId: lav, entregueEm: new Date() });
+      const [v] = await db.select().from(veiculos).where(eq(veiculos.id, veiculoId));
+      const [s] = await db.select().from(servicos).where(eq(servicos.tenantId, f.a.tenantId));
+      const [item] = await db.insert(osItens).values({ tenantId: f.a.tenantId, osId: o.id, servicoId: s.id, porteId: v.porteId, nomeServico: 'Lavagem', valorCentavos: 5000, comissaoTipo: 'percentual', comissaoValor: 3000 }).returning();
+      const [a] = await db
+        .insert(acertosComissao)
+        .values({ tenantId: f.a.tenantId, membroId: lav, periodoInicio: '2026-10-01', periodoFim: '2026-10-05', comissoesCentavos: 0, valesCentavos: 0, saldoAnteriorCentavos: 0, pagoCentavos: 0, saldoDevedorCentavos: 0, pagoPor: f.a.membros.gerente.memberId, pagoEm: new Date('2026-10-05T12:00:00Z') })
+        .returning();
+      await db.insert(comissoes).values({ tenantId: f.a.tenantId, osId: o.id, osItemId: item.id, membroId: lav, baseCentavos: 5000, valorCentavos: 1500, acertoId: a.id });
+      await como(f, f.a.membros.gerente.userId);
+      expect(await transitarOsAction({ osId: o.id, esperado: 'entregue', para: 'pronto', motivo: 'x' })).toEqual({ ok: false, code: 'COMISSAO_PAGA', message: 'Comissão já paga no acerto de 05/10.' });
+      expect(await linha(db, o.id)).toMatchObject({ status: 'entregue' });
     }));
 
   it('recepcao recebe acesso negado em os:assumir', () =>

@@ -11,6 +11,7 @@ import { publicar } from '@/lib/realtime/publicar';
 import { pagamentosDaOs } from '@/modules/caixa/caixa.repo';
 import { saldoOs } from '@/modules/caixa/caixa.rules';
 import { formatarReais, INT4_MAX } from '@/modules/catalogo/catalogo.rules';
+import { gerarComissoes, removerComissoesPendentes } from '@/modules/comissoes/comissoes.service';
 import { buscarVeiculo, carregarOs, itensDaOs, lavadorAtivo, servicosComPreco } from './ordens.repo';
 import { calcularTotais, decidirTransicao, validarSelecaoServicos, type StatusOs } from './ordens.rules';
 import type { abrirOsSchema, ajustarValorSchema, editarItensSchema } from './ordens.schemas';
@@ -204,6 +205,7 @@ export async function transitarOs(
       if (i.para === 'cancelada' && pago > 0) throw new OrdensError('TEM_PAGAMENTO', 'Estorne os pagamentos antes de cancelar.');
     }
     const reabrir = os.status === 'entregue';
+    if (reabrir) await removerComissoesPendentes(tx, ctx, os.id);
 
     const responsavelId = d.limpaResponsavel ? null : explicito ? i.responsavelId! : inicio ? (os.responsavelId ?? ctx.memberId) : os.responsavelId;
     const agora = sql`now()`;
@@ -222,6 +224,7 @@ export async function transitarOs(
       .where(and(eq(ordensServico.tenantId, ctx.tenantId), eq(ordensServico.id, os.id), eq(ordensServico.status, i.esperado)))
       .returning({ id: ordensServico.id });
     if (!ok) throw await conflito(tx, ctx, os.id);
+    if (i.para === 'entregue') await gerarComissoes(tx, ctx, os.id);
     await tx.insert(osEventos).values([
       { tenantId: ctx.tenantId, osId: os.id, tipo: 'status', de: os.status, para: i.para, membroId: ctx.memberId, motivo: i.motivo || null },
       ...(responsavelId !== os.responsavelId ? [{ tenantId: ctx.tenantId, osId: os.id, tipo: 'responsavel' as const, de: os.responsavelId, para: responsavelId, membroId: ctx.memberId }] : []),
