@@ -54,7 +54,7 @@
 
 **Produces:** `basesDosItens(itens: number[], desconto: number, acrescimo: number): number[]` (Σ = max(0, Σitens − desconto + acréscimo), sobra no maior); `comissaoDoItem(base: number, tipo: 'percentual' | 'fixo', valor: number): number`; `calcularAcerto({ comissoes: number[], vales: number[], saldoAnterior: number }): { comissoesCentavos, valesCentavos, saldoAnteriorCentavos, pagoCentavos, saldoDevedorCentavos }`.
 
-- [ ] Testes que falham: o caso dos 33,33 % da Review Focus; desconto maior que o subtotal (todas as bases zero); acréscimo; um item só; itens de valor zero; empate do maior; meio centavo arredonda para cima (ex.: base 150, 3333 pb → 50); fixo com base zero; acerto com vale maior, igual e menor, com saldo anterior; propriedade: para 200 casos aleatórios com semente fixa, Σ bases = total → implementar → commit `feat(comissoes): rateio, comissão por item e acerto`.
+- [x] Testes que falham: o caso dos 33,33 % da Review Focus; desconto maior que o subtotal (todas as bases zero); acréscimo; um item só; itens de valor zero; empate do maior; meio centavo arredonda para cima (ex.: base 150, 3333 pb → 50); fixo com base zero; acerto com vale maior, igual e menor, com saldo anterior; propriedade: para 200 casos aleatórios com semente fixa, Σ bases = total → implementar → commit `feat(comissoes): rateio, comissão por item e acerto`.
 
 ### Task 3: Geração na entrega e reabertura
 
