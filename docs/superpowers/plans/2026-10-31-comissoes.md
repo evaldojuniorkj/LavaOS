@@ -46,7 +46,7 @@
 - `vales`: `membro_id`, `valor_centavos` (> 0), `dado_em`, `dado_por`, `despesa_id` (not null), `acerto_id`, `cancelado_em`, `cancelado_por`, `motivo_cancelamento` (check três-juntos). Índice `(tenant_id, membro_id, acerto_id)`.
 - `acertos_comissao`: `membro_id`, `periodo_inicio` (date), `periodo_fim` (date), `comissoes_centavos`, `vales_centavos`, `saldo_anterior_centavos`, `pago_centavos`, `saldo_devedor_centavos` (todos ≥ 0), `despesa_id` (nulo quando `pago = 0`), `pago_em`, `pago_por`. Check: `pago = greatest(0, comissoes − vales − saldo_anterior)` e `saldo_devedor = greatest(0, vales + saldo_anterior − comissoes)`.
 
-- [ ] Testes que falham (unique de `os_item_id`; vale sem despesa recusado; check do acerto; `lavaos_app` sem DELETE em `vales`/`acertos_comissao` e com DELETE em `comissoes`; `comissoes:gerenciar` só dono/gerente e implantada) → implementar → `pnpm db:migrate`, `pnpm test`, `pnpm typecheck` → commit `feat(comissoes): tabelas de comissões, vales e acertos`.
+- [x] Testes que falham (unique de `os_item_id`; vale sem despesa recusado; check do acerto; `lavaos_app` sem DELETE em `vales`/`acertos_comissao` e com DELETE em `comissoes`; `comissoes:gerenciar` só dono/gerente e implantada) → implementar → `pnpm db:migrate`, `pnpm test`, `pnpm typecheck` → commit `feat(comissoes): tabelas de comissões, vales e acertos`.
 
 ### Task 2: Regras puras
 

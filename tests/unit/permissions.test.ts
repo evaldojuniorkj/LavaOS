@@ -82,7 +82,7 @@ describe('assertPermission', () => {
   it('dinheiro implantado: caixa:operar na frente; estorno, reabertura e despesas só na gestão', () => {
     expect(() => assertPermission(ctx('recepcao'), 'caixa:operar')).not.toThrow();
     expect(() => assertPermission(ctx('lavador'), 'caixa:operar')).toThrow('acesso negado');
-    for (const p of ['caixa:reabrir', 'caixa:estornar', 'despesas:gerenciar', 'os:reabrir'] as const) {
+    for (const p of ['caixa:reabrir', 'caixa:estornar', 'despesas:gerenciar', 'os:reabrir', 'comissoes:gerenciar'] as const) {
       for (const perfil of ['dono', 'gerente'] as const) expect(() => assertPermission(ctx(perfil), p)).not.toThrow();
       for (const perfil of ['recepcao', 'lavador'] as const) expect(() => assertPermission(ctx(perfil), p)).toThrow('acesso negado');
     }
