@@ -7,6 +7,7 @@ import type { TenantContext } from '@/lib/auth/types';
 import { basesDosItens, comissaoDoItem } from '@/modules/comissoes/comissoes.rules';
 import { ComissoesError } from '@/modules/comissoes/comissoes.service';
 import { atribuirResponsavel, transitarOs } from '@/modules/ordens/ordens.service';
+import '../helpers/auth'; // env do runtime (getDatabase, publicar): no CI não há .env.local
 import { withTestDatabase } from '../helpers/db';
 import { createFoundationFixtures, type FoundationFixtures } from '../helpers/fixtures';
 import { criarMembro, criarOs, pagar, semearVeiculo } from '../helpers/ordens';
