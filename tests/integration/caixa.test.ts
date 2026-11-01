@@ -58,7 +58,7 @@ describe('caixa', () => {
 
   it('receber sem caixa aberto é recusado', () =>
     run(async ({ db, rec, osId }) => {
-      await expect(receber(rec, { osId, forma: 'pix', valorCentavos: 1000 }, db)).rejects.toMatchObject({ code: 'SEM_CAIXA', message: 'Abra o caixa antes de receber.' });
+      await expect(receber(rec, { osId, forma: 'pix', valorCentavos: 1000 }, db)).rejects.toMatchObject({ code: 'SEM_CAIXA', message: 'Abra o caixa de hoje antes.' });
     }));
 
   it('caixa de ontem aberto bloqueia receber e abrir o de hoje até ser fechado', () =>

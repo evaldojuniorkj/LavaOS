@@ -23,12 +23,12 @@ export class CaixaError extends Error {
   }
 }
 
-type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+export type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 const ddmm = (data: string) => `${data.slice(8, 10)}/${data.slice(5, 7)}`;
 const outroDia = (data: string) => new CaixaError('CAIXA_DE_OUTRO_DIA', `Feche o caixa de ${ddmm(data)} antes.`);
 const naoEncontrado = (o: 'Caixa' | 'OS' | 'Pagamento') => new CaixaError('NAO_ENCONTRADO', `${o} não encontrad${o === 'OS' ? 'a' : 'o'}.`);
 
-async function emTransacao<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> {
+export async function emTransacao<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> {
   try {
     return await db.transaction(async (tx) => {
       await tx.execute(sql`set local lock_timeout = '5s'`);
@@ -55,9 +55,9 @@ async function travarOs(tx: Tx, ctx: TenantContext, id: string) {
 }
 
 /** FOR SHARE: um fechamento concorrente espera este commit; se fechou antes, o aberto some da consulta e a escrita é recusada. */
-async function caixaAbertoDeHoje(tx: Tx, ctx: TenantContext, agora: Date) {
+export async function caixaAbertoDeHoje(tx: Tx, ctx: TenantContext, agora: Date) {
   const [c] = await tx.select().from(caixas).where(and(eq(caixas.tenantId, ctx.tenantId), eq(caixas.status, 'aberto'))).for('share');
-  if (!c) throw new CaixaError('SEM_CAIXA', 'Abra o caixa antes de receber.');
+  if (!c) throw new CaixaError('SEM_CAIXA', 'Abra o caixa de hoje antes.');
   if (c.data !== dataDoCaixa(agora)) throw outroDia(c.data);
   return c;
 }
