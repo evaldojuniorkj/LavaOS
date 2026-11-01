@@ -369,6 +369,8 @@ Programa simples por cliente: **a cada N lavagens elegíveis e pagas, ganha um s
 
 Cada fase tem seu próprio plano, escrito quando chegar a sua vez, e uma branch própria integrada à `main` só após a revisão final da fase.
 
+**Ordem de execução (revista em 2026-10-31):** 4 → 5 → 8 → 6 → 7 → 3 → 9. Os números das fases não mudam; o porquê e o escopo de cada uma estão no [roteiro](../plans/2026-10-31-roteiro.md).
+
 | Fase | Conteúdo | Resultado |
 |---|---|---|
 | **0. Fundação** | Next.js, Docker Compose (Postgres), Drizzle e migrations, Better Auth (e-mail/senha e usuário/PIN), tenant e membros, perfis e permissões, layout base, scripts de qualidade, infraestrutura de testes | Base pronta |
