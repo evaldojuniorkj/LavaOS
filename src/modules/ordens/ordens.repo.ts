@@ -1,11 +1,12 @@
 import 'server-only';
-import { and, asc, eq, inArray, isNull, max, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, max, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { TenantContext } from '@/lib/auth/types';
 import { getServerEnv } from '@/lib/env';
 import { getDatabase } from '@/lib/db/client';
 import { clientes, lavaJatos, membros, ordensServico, osItens, pagamentos, precos, servicos, veiculos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
+import { inicioDoDia } from '@/modules/painel/painel.rules';
 import { sugerirLavadorLivre } from './ordens.rules';
 import { toOsView, type OsCompleta, type OsView } from './ordens.views';
 
@@ -134,6 +135,12 @@ export async function carregarOs(ctx: TenantContext, id: string, db: Leitor = ge
 export async function listarFila(ctx: TenantContext, db: Leitor = getDatabase()): Promise<OsView[]> {
   const fila = await carregarVarias(ctx, inArray(ordensServico.status, ['aguardando', 'em_lavagem', 'pronto']), db);
   return fila.map((os) => toOsView(ctx.perfil, os));
+}
+
+/** Entregues desde a meia-noite de São Paulo, para reabrir na fila; sempre via toOsView. */
+export async function listarEntreguesHoje(ctx: TenantContext, agora = new Date(), db: Leitor = getDatabase()): Promise<OsView[]> {
+  const lista = await carregarVarias(ctx, and(eq(ordensServico.status, 'entregue'), gte(ordensServico.entregueEm, inicioDoDia(agora)))!, db);
+  return lista.map((os) => toOsView(ctx.perfil, os));
 }
 
 /** Qualquer status; id de outro tenant ou malformado = null. */

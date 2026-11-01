@@ -94,7 +94,7 @@ test('recepção abre OS → lavador pega no celular → fila atualiza → pront
   expect(aviso.searchParams.get('text')).toContain('R$ 70,00');
 
   await quitarOs(GOL);
-  await pronto.getByRole('button', { name: 'Entregar' }).click();
+  await pronto.getByRole('button', { name: 'Entregar', exact: true }).click();
   await expect(cartao(page, GOL)).toHaveCount(0);
   await expect(cartao(lav, GOL)).toHaveCount(0); // entregue sai também do celular
   await expect(pub.getByRole('heading', { level: 1 })).toHaveText('Entregue');

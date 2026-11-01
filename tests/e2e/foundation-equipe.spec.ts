@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { entrarLavador, entrarStaff, semRolagemHorizontal, senha, SUFIXO } from './login';
+import { entrarLavador, entrarStaff, linkDoMenu, semRolagemHorizontal, senha, SUFIXO } from './login';
 
 const PIN_INVALIDO = 'Usuário ou PIN inválidos. Após 5 erros seguidos o acesso fica bloqueado por 15 minutos.';
 const SESSAO_ENCERRADA = 'Sua sessão terminou ou o acesso foi removido. Entre novamente.';
@@ -30,7 +30,8 @@ async function novoContexto(browser: Browser) {
 
 test('dono vê equipe, cadastra lavador e recepção; nada de segredo no HTML', async ({ page }) => {
   await abrirEquipeComoDono(page);
-  await expect(page.getByRole('link', { name: 'Equipe' })).toBeVisible();
+  await expect(await linkDoMenu(page, 'Equipe')).toBeVisible();
+  await page.keyboard.press('Escape'); // fecha o "Mais" do celular antes de medir a rolagem
   await semRolagemHorizontal(page);
   for (const nome of ['Dono E2E', 'Gerente E2E', 'Recepcao E2E', 'Lavador E2E']) await expect(linha(page, nome)).toBeVisible();
 
@@ -52,7 +53,7 @@ test('dono vê equipe, cadastra lavador e recepção; nada de segredo no HTML', 
 
 test('gerente vê equipe só com perfis que pode cadastrar e sem ações sobre o dono', async ({ page }) => {
   await entrarStaff(page, 'gerente@e2e.test');
-  await page.getByRole('link', { name: 'Equipe' }).click();
+  await (await linkDoMenu(page, 'Equipe')).click();
   await expect(page).toHaveURL('/configuracoes/equipe');
   const opcoes = await page.getByLabel('Perfil').locator('option').allTextContents();
   expect(opcoes).toEqual(['Recepção', 'Lavador']);

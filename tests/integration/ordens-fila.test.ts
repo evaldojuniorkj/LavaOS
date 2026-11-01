@@ -3,9 +3,10 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import { getDatabase } from '@/lib/db/client';
 import { ordensServico, osItens, pagamentos, servicos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
-import { listarFilaAction, obterOsAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
+import { listarEntreguesHojeAction, listarFilaAction, obterOsAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
 import { listarFila } from '@/modules/ordens/ordens.repo';
 import { ERROS_RECARREGAR_FILA } from '@/modules/ordens/ordens.rules';
+import { inicioDoDia } from '@/modules/painel/painel.rules';
 import { createAuthFixtures, type AuthFixtures } from '../helpers/auth';
 import { withTestDatabase } from '../helpers/db';
 import { criarOs, pagar, semearVeiculo, sessaoLavador, sessaoStaff } from '../helpers/ordens';
@@ -123,6 +124,23 @@ describe('leitura da fila', () => {
       expect(dados(await listarFilaAction())).toEqual([]);
       expect(dados(await obterOsAction({ osId: e.id }))).toMatchObject({ status: 'entregue' });
       expect(dados(await obterOsAction({ osId: c.id }))).toMatchObject({ status: 'cancelada' });
+    }));
+
+  it('Entregues hoje: só as entregues desde a meia-noite, só do tenant; lavador sem R$', () =>
+    run(async ({ db, f, os }) => {
+      const hoje = await os({ status: 'entregue', entregueEm: new Date() });
+      await pagar(db, { tenantId: f.a.tenantId, osId: hoje.id, recebidoPor: f.a.membros.recepcao.memberId });
+      await os({ status: 'entregue', entregueEm: new Date(inicioDoDia(new Date()).getTime() - 60_000) }); // ontem, 23:59
+      await os({ status: 'pronto' });
+      await os({ status: 'cancelada' });
+      const vB = await semearVeiculo(db, f.b.tenantId);
+      await criarOs(db, { tenantId: f.b.tenantId, veiculoId: vB.id, abertaPor: f.b.membros.recepcao.memberId, status: 'entregue', entregueEm: new Date() });
+      await como(f, f.a.membros.recepcao.userId);
+      expect(dados(await listarEntreguesHojeAction())).toMatchObject([{ id: hoje.id, totalCentavos: 5000, pagoCentavos: 5000 }]);
+      req.headers = await sessaoLavador(f);
+      const lav = dados(await listarEntreguesHojeAction());
+      expect(lav).toMatchObject([{ id: hoje.id }]);
+      expect(chaves(lav).filter((k) => /centavos|pago|token|telefone|comissao/i.test(k))).toEqual([]);
     }));
 
   it('ERROS_RECARREGAR_FILA coincide com os códigos que o serviço devolve', () =>

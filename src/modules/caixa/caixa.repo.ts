@@ -62,3 +62,10 @@ export async function resumoDoCaixa(ctx: TenantContext, caixaId: string, db: Lei
   return { caixa, pagamentos: lista, saidas, ...r };
 }
 export type ResumoDoCaixa = NonNullable<Awaited<ReturnType<typeof resumoDoCaixa>>>;
+
+/** O aberto (de hoje ou esquecido de outro dia) ou, sem aberto, o de hoje; `resumo` null = nenhum caixa hoje. */
+export async function caixaAtual(ctx: TenantContext, agora = new Date(), db: Leitor = getDatabase()) {
+  const c = (await caixaAbertoQualquer(ctx, db)) ?? (await caixaDoDia(ctx, agora, db));
+  return { hoje: dataDoCaixa(agora), resumo: c && (await resumoDoCaixa(ctx, c.id, db)) };
+}
+export type CaixaAtual = Awaited<ReturnType<typeof caixaAtual>>;

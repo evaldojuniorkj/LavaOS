@@ -1,6 +1,7 @@
-import { FORMAS_PAGAMENTO } from '@/lib/db/schema';
+import type { FORMAS_PAGAMENTO } from '@/lib/db/schema';
 
-export const FORMAS = FORMAS_PAGAMENTO;
+// cópia conferida pelo tipo: importar o valor do schema levaria o drizzle para as telas do cliente
+export const FORMAS = ['dinheiro', 'pix', 'debito', 'credito'] as const satisfies typeof FORMAS_PAGAMENTO;
 export type Forma = (typeof FORMAS)[number];
 export const ROTULO_FORMA: Record<Forma, string> = { dinheiro: 'Dinheiro', pix: 'Pix', debito: 'Débito', credito: 'Crédito' };
 

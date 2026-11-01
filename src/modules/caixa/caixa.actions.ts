@@ -6,7 +6,7 @@ import { requirePermission } from '@/lib/auth/context';
 import { AcessoNegadoError } from '@/lib/auth/permissions';
 import type { Permissao, TenantContext } from '@/lib/auth/types';
 import type { ActionResult } from '@/modules/catalogo/catalogo.actions';
-import type { ResumoDoCaixa } from './caixa.repo';
+import { caixaAtual, type CaixaAtual, type ResumoDoCaixa } from './caixa.repo';
 import { abrirCaixaSchema, estornarPagamentoSchema, fecharCaixaSchema, reabrirCaixaSchema, receberSchema } from './caixa.schemas';
 import { abrirCaixa, CaixaError, estornarPagamento, fecharCaixa, reabrirCaixa, receber } from './caixa.service';
 
@@ -45,4 +45,8 @@ export async function fecharCaixaAction(input: unknown): Promise<ActionResult<Re
 
 export async function reabrirCaixaAction(input: unknown): Promise<ActionResult<ResumoDoCaixa>> {
   return executar('caixa:reabrir', reabrirCaixaSchema, input, (ctx, d) => reabrirCaixa(ctx, d));
+}
+
+export async function carregarCaixaAction(): Promise<ActionResult<CaixaAtual>> {
+  return executar('caixa:operar', z.undefined(), undefined, (ctx) => caixaAtual(ctx));
 }

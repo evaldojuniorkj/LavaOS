@@ -25,3 +25,12 @@ export async function semRolagemHorizontal(page: Page) {
   const { scroll, client } = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
   expect(scroll).toBeLessThanOrEqual(client);
 }
+
+/** Link do menu principal; no celular, com mais de 5 itens, os além da 4ª aba ficam em "Mais". */
+export async function linkDoMenu(page: Page, nome: string) {
+  const nav = page.getByRole('navigation', { name: 'Principal' });
+  await expect(nav).toBeVisible();
+  const mais = nav.getByRole('button', { name: 'Mais' });
+  if ((await mais.isVisible()) && (await mais.getAttribute('aria-expanded')) !== 'true') await mais.click();
+  return nav.getByRole('link', { name: nome });
+}

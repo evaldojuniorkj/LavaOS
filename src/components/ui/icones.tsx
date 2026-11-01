@@ -43,3 +43,17 @@ export const IconePainel = () => (
     <rect x="13.5" y="13.5" width="7" height="7" rx="2" />
   </svg>
 );
+export const IconeCaixa = () => (
+  <svg {...base}>
+    <rect x="2.5" y="6" width="19" height="12" rx="2" />
+    <circle cx="12" cy="12" r="2.5" />
+    <path d="M6 9.5v5M18 9.5v5" />
+  </svg>
+);
+export const IconeMais = () => (
+  <svg {...base}>
+    <circle cx="5" cy="12" r="1.3" />
+    <circle cx="12" cy="12" r="1.3" />
+    <circle cx="19" cy="12" r="1.3" />
+  </svg>
+);

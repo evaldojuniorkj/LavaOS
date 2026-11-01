@@ -8,18 +8,21 @@ import { tintaDoStatus } from '@/components/ui/status-visual';
 import { Button } from '@/components/ui/button';
 import { Campo } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Modal, Motivo } from '@/components/ui/modal';
+import { ReceberDialogo } from '@/components/receber-dialogo';
 import { AvisosWhatsapp } from '@/components/whatsapp-button';
 import { useEventos } from '@/components/use-eventos';
 import type { ActionResult } from '@/modules/catalogo/catalogo.actions';
 import { centesimosParaTexto, formatarReais, decimalParaCentesimos } from '@/modules/catalogo/catalogo.rules';
-import { ajustarValorAction, atribuirResponsavelAction, editarItensAction, listarFilaAction, listarLavadoresAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
+import { receberAction } from '@/modules/caixa/caixa.actions';
+import { ajustarValorAction, atribuirResponsavelAction, editarItensAction, listarEntreguesHojeAction, listarFilaAction, listarLavadoresAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
 import { ERROS_RECARREGAR_FILA, type StatusOs } from '@/modules/ordens/ordens.rules';
 import type { OsView, OsViewGestao } from '@/modules/ordens/ordens.views';
 import { cn, SEM_CONEXAO, tempoDesde } from '@/lib/utils';
 
-export type Pode = { assumir: boolean; atribuir: boolean; corrigir: boolean; entregar: boolean; cancelar: boolean; ajustarValor: boolean; verValores: boolean };
+export type Pode = { assumir: boolean; atribuir: boolean; corrigir: boolean; entregar: boolean; cancelar: boolean; ajustarValor: boolean; verValores: boolean; receber: boolean; reabrir: boolean };
 type Lavador = { membroId: string; nome: string; livre: boolean; sugerido: boolean };
-type Dialogo = { tipo: 'direcionar' | 'iniciar' | 'cancelar' | 'editar'; osId: string };
+type Dialogo = { tipo: 'direcionar' | 'iniciar' | 'cancelar' | 'editar' | 'receber' | 'receber-entregar' | 'reabrir'; osId: string };
 
 const COLUNAS: { status: StatusOs; titulo: string }[] = [
   { status: 'aguardando', titulo: 'Aguardando' },
@@ -27,12 +30,15 @@ const COLUNAS: { status: StatusOs; titulo: string }[] = [
   { status: 'pronto', titulo: 'Pronto' },
 ];
 const comValores = (os: OsView): os is OsViewGestao => 'totalCentavos' in os; // a visão do lavador não tem nenhum valor
+const falta = (os: OsView) => (comValores(os) ? Math.max(0, os.totalCentavos - os.pagoCentavos) : 0);
+const hhmm = (d: Date) => new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const erroDe = (r: Extract<ActionResult<unknown>, { ok: false }>) =>
   r.code === 'ACESSO_NEGADO' ? 'Seu perfil não pode fazer isso.' : r.code === 'VALIDACAO' ? (Object.values(r.fieldErrors ?? {})[0]?.[0] ?? 'Dados inválidos.') : r.message;
 
 /** Fila em tempo real: o servidor manda a visão do perfil; cada evento SSE só dispara uma recarga. */
-export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[]; pode: Pode; meuId: string; servicos: { id: string; nome: string }[] }) {
+export function FilaBoard({ inicial, entreguesInicial, pode, meuId, servicos }: { inicial: OsView[]; entreguesInicial: OsView[]; pode: Pode; meuId: string; servicos: { id: string; nome: string }[] }) {
   const [fila, setFila] = useState(inicial);
+  const [entregues, setEntregues] = useState(entreguesInicial);
   const [erro, setErro] = useState('');
   const [dialogo, setDialogo] = useState<Dialogo | null>(null);
   const [pendente, iniciar] = useTransition();
@@ -49,12 +55,14 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
   const focar = useRef<{ el: Element | null; osId: string; aposRecarga: boolean } | null>(null);
   const recarregar = useCallback(async () => {
     const n = ++seq.current; // recargas podem se sobrepor (SSE e ação): só a mais recente vale
-    const r = await listarFilaAction().catch(() => null);
+    // as actions saem uma por vez do cliente: Promise.all só junta o tratamento
+    const [r, e] = await Promise.all([listarFilaAction(), listarEntreguesHojeAction()]).catch(() => [null, null]);
     if (n !== seq.current) return;
-    setFalhouAtualizacao(!r?.ok);
-    if (!r?.ok) return;
+    setFalhouAtualizacao(!r?.ok || !e?.ok);
+    if (!r?.ok || !e?.ok) return;
     if (focar.current) focar.current.aposRecarga = false;
     setFila(r.data);
+    setEntregues(e.data);
     setAtualizadoEm(Date.now());
   }, []);
 
@@ -77,7 +85,7 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
     iniciar(async () => {
       const r = await acao().catch(() => SEM_CONEXAO);
       if (!r.ok && r.code === 'VALIDACAO' && r.fieldErrors && onErroCampo) return onErroCampo(r.fieldErrors);
-      const recarga = r.ok || (ERROS_RECARREGAR_FILA as readonly string[]).includes(r.code);
+      const recarga = r.ok || [...ERROS_RECARREGAR_FILA, 'ENTREGA_FALHOU'].includes(r.code);
       setErro(r.ok ? '' : erroDe(r));
       if (!r.ok || !manterAberto) {
         focar.current = abridor.current && { ...abridor.current, aposRecarga: recarga };
@@ -89,7 +97,16 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
   const transitar = (os: OsView, para: StatusOs, extra: { responsavelId?: string; motivo?: string } = {}, onErroCampo?: (e: Record<string, string[]>) => void) =>
     executar(() => transitarOsAction({ osId: os.id, esperado: os.status, para, ...extra }), onErroCampo);
 
-  const aberta = dialogo && fila.find((o) => o.id === dialogo.osId);
+  /** Recebe e, em "Receber e entregar", entrega se quitou; se a entrega falhar o pagamento fica e a mensagem diz isso. */
+  const receber = (os: OsViewGestao, entregar: boolean, dados: { forma: string; valorCentavos: number }, onErroCampo: (e: Record<string, string[]>) => void) =>
+    executar(async () => {
+      const r = await receberAction({ osId: os.id, ...dados });
+      if (!r.ok || !entregar || r.data.saldoCentavos > 0) return r;
+      const e = await transitarOsAction({ osId: os.id, esperado: 'pronto', para: 'entregue' }).catch(() => SEM_CONEXAO);
+      return e.ok ? e : { ok: false, code: 'ENTREGA_FALHOU', message: `Pagamento registrado, mas a OS não foi entregue: ${erroDe(e)}` };
+    }, onErroCampo);
+
+  const aberta = dialogo && [...fila, ...entregues].find((o) => o.id === dialogo.osId);
 
   return (
     <div className="space-y-4">
@@ -127,6 +144,31 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
           );
         })}
       </div>
+      <details className="rounded-3xl bg-white/50 p-3">
+        <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-lg font-bold text-tinta">
+          Entregues hoje
+          <span className="rounded-full bg-tinta px-2.5 text-sm text-white">{entregues.length}</span>
+        </summary>
+        {entregues.length === 0 && <p className="mt-2 text-sm text-suave">Nenhuma OS entregue hoje.</p>}
+        <ul className="mt-2 grid gap-2 md:grid-cols-3">
+          {entregues.map((os) => (
+            <li key={os.id} id={`os-${os.id}`} tabIndex={-1} className={cn('flex flex-wrap items-center justify-between gap-2 rounded-2xl p-3', tintaDoStatus('entregue'))}>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-suave">
+                  OS {os.numero} · entregue às {os.entregueEm ? hhmm(os.entregueEm) : '—'}
+                </p>
+                <Placa valor={os.veiculo.placa} />
+                {comValores(os) && <p className="text-base font-semibold text-tinta">{formatarReais(os.totalCentavos)}</p>}
+              </div>
+              {pode.reabrir && (
+                <Button variante="secundario" disabled={pendente} onClick={() => abrirDialogo('reabrir', os.id)} aria-label={`Reabrir OS ${os.numero}`}>
+                  Reabrir
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </details>
       {aberta && (
         <Modal key={`${dialogo.tipo}-${aberta.id}`} onFechar={() => setDialogo(null)} titulo={tituloDialogo(dialogo.tipo, aberta)}>
           {(dialogo.tipo === 'direcionar' || dialogo.tipo === 'iniciar') && (
@@ -138,7 +180,15 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
               }
             />
           )}
-          {dialogo.tipo === 'cancelar' && <Cancelar pendente={pendente} onConfirmar={(motivo, onErro) => transitar(aberta, 'cancelada', { motivo }, onErro)} onVoltar={() => setDialogo(null)} />}
+          {dialogo.tipo === 'cancelar' && (
+            <Motivo confirmar="Confirmar cancelamento" enviando="Cancelando…" perigo pendente={pendente} onConfirmar={(motivo, onErro) => transitar(aberta, 'cancelada', { motivo }, onErro)} onVoltar={() => setDialogo(null)} />
+          )}
+          {dialogo.tipo === 'reabrir' && (
+            <Motivo confirmar="Reabrir OS" enviando="Reabrindo…" pendente={pendente} onConfirmar={(motivo, onErro) => transitar(aberta, 'pronto', { motivo }, onErro)} onVoltar={() => setDialogo(null)} />
+          )}
+          {(dialogo.tipo === 'receber' || dialogo.tipo === 'receber-entregar') && comValores(aberta) && (
+            <ReceberDialogo os={aberta} entregar={dialogo.tipo === 'receber-entregar'} pendente={pendente} onConfirmar={(dados, onErro) => receber(aberta, dialogo.tipo === 'receber-entregar', dados, onErro)} />
+          )}
           {dialogo.tipo === 'editar' && <EditarOs os={aberta} servicos={servicos} pode={pode} pendente={pendente} executar={(acao, onErro) => executar(acao, onErro, true)} />}
         </Modal>
       )}
@@ -150,6 +200,9 @@ function tituloDialogo(tipo: Dialogo['tipo'], os: OsView) {
   if (tipo === 'iniciar') return `Iniciar lavagem da OS ${os.numero}: quem lava?`;
   if (tipo === 'cancelar') return `Cancelar OS ${os.numero}`;
   if (tipo === 'editar') return `Editar OS ${os.numero}`;
+  if (tipo === 'reabrir') return `Reabrir OS ${os.numero}`;
+  if (tipo === 'receber') return `Receber OS ${os.numero}`;
+  if (tipo === 'receber-entregar') return `Receber e entregar OS ${os.numero}`;
   return os.responsavel ? `Trocar responsável da OS ${os.numero}` : `Direcionar OS ${os.numero}`;
 }
 
@@ -176,7 +229,11 @@ function Cartao({ os, agora, pode, meuId, pendente, onTransitar, onDialogo }: {
     } else if (meu) acoes.push({ rotulo: 'Iniciar lavagem', fazer: () => onTransitar(os, 'em_lavagem') });
   }
   if (os.status === 'em_lavagem' && (pode.atribuir || meu)) acoes.push({ rotulo: 'Marcar pronto', fazer: () => onTransitar(os, 'pronto') });
-  if (os.status === 'pronto' && pode.entregar) acoes.push({ rotulo: 'Entregar', fazer: () => onTransitar(os, 'entregue') });
+  // sem o valor (lavador) não dá para saber se quitou: o botão fica e o servidor decide
+  const saldo = falta(os);
+  if (os.status === 'pronto' && pode.receber && pode.entregar && saldo > 0) acoes.push({ rotulo: 'Receber e entregar', fazer: () => onDialogo('receber-entregar') });
+  if (pode.receber && saldo > 0) acoes.push({ rotulo: 'Receber', variante: os.status === 'pronto' && pode.entregar ? 'secundario' : 'primario', fazer: () => onDialogo('receber') });
+  if (os.status === 'pronto' && pode.entregar && saldo === 0) acoes.push({ rotulo: 'Entregar', fazer: () => onTransitar(os, 'entregue') });
   if (pode.corrigir && os.status !== 'aguardando') acoes.push({ rotulo: 'Voltar status', variante: 'secundario', fazer: () => onTransitar(os, os.status === 'pronto' ? 'em_lavagem' : 'aguardando') });
   if (pode.atribuir) acoes.push({ rotulo: os.responsavel ? 'Trocar responsável' : 'Direcionar', variante: 'secundario', fazer: () => onDialogo('direcionar') });
   if (pode.corrigir) acoes.push({ rotulo: 'Editar', variante: 'secundario', fazer: () => onDialogo('editar') });
@@ -205,7 +262,9 @@ function Cartao({ os, agora, pode, meuId, pendente, onTransitar, onDialogo }: {
       </ul>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className={cn('text-base', os.responsavel ? 'font-semibold text-tinta' : 'text-suave italic')}>{os.responsavel?.nomeExibicao ?? 'Sem responsável'}</p>
-        {comValores(os) && <p className="text-lg font-bold text-tinta">{formatarReais(os.totalCentavos)}</p>}
+        {comValores(os) && (
+          <p className="text-lg font-bold text-tinta">{os.pagoCentavos > 0 ? `Pago ${formatarReais(os.pagoCentavos)} de ${formatarReais(os.totalCentavos)}` : formatarReais(os.totalCentavos)}</p>
+        )}
       </div>
       {comValores(os) && pode.verValores && os.status !== 'entregue' && os.status !== 'cancelada' && <AvisosWhatsapp os={os} />}
       {acoes.length > 0 && (
@@ -218,33 +277,6 @@ function Cartao({ os, agora, pode, meuId, pendente, onTransitar, onDialogo }: {
         </div>
       )}
     </article>
-  );
-}
-
-/** <dialog> nativo: foco preso, Esc fecha e o resto da página fica inerte. */
-function Modal({ titulo, onFechar, children }: { titulo: string; onFechar: () => void; children: React.ReactNode }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    ref.current?.showModal();
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      aria-labelledby="dialogo-titulo"
-      onClose={onFechar}
-      className="folha m-auto mb-0 max-h-[92dvh] w-full max-w-lg rounded-t-3xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-tinta backdrop:bg-tinta/50 sm:mb-auto sm:rounded-3xl"
-    >
-      <div aria-hidden className="mx-auto -mt-2 mb-3 h-1.5 w-10 rounded-full bg-linha sm:hidden" />
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <h2 id="dialogo-titulo" className="text-lg font-bold">
-          {titulo}
-        </h2>
-        <Button variante="secundario" className="px-3" onClick={() => ref.current?.close()} aria-label="Fechar">
-          ✕
-        </Button>
-      </div>
-      {children}
-    </dialog>
   );
 }
 
@@ -284,48 +316,6 @@ function EscolherLavador({ semResponsavel, pendente, onEscolher }: { semResponsa
         </li>
       )}
     </ul>
-  );
-}
-
-function Cancelar({ pendente, onConfirmar, onVoltar }: { pendente: boolean; onConfirmar: (motivo: string, onErro: (e: Record<string, string[]>) => void) => void; onVoltar: () => void }) {
-  const [erroMotivo, setErroMotivo] = useState('');
-  return (
-    <form
-      noValidate
-      className="space-y-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const motivo = String(new FormData(e.currentTarget).get('motivo') ?? '').trim();
-        if (!motivo) return setErroMotivo('Informe o motivo.');
-        onConfirmar(motivo, (erros) => setErroMotivo(erros.motivo?.[0] ?? 'Revise o motivo.'));
-      }}
-    >
-      <div className="space-y-1.5">
-        <Label htmlFor="cancelar-motivo">Motivo</Label>
-        <textarea
-          id="cancelar-motivo"
-          name="motivo"
-          rows={3}
-          maxLength={500}
-          aria-invalid={erroMotivo ? true : undefined}
-          aria-describedby={erroMotivo ? 'cancelar-motivo-erro' : undefined}
-          className="block w-full rounded-md border border-linha bg-white p-3 text-base aria-invalid:border-perigo"
-        />
-        {erroMotivo && (
-          <p id="cancelar-motivo-erro" className="text-sm font-medium text-perigo">
-            {erroMotivo}
-          </p>
-        )}
-      </div>
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variante="secundario" onClick={onVoltar}>
-          Voltar
-        </Button>
-        <Button type="submit" variante="perigo" disabled={pendente}>
-          {pendente ? 'Cancelando…' : 'Confirmar cancelamento'}
-        </Button>
-      </div>
-    </form>
   );
 }
 
