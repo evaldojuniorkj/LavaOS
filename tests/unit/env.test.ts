@@ -3,7 +3,6 @@ import { parseServerEnv } from '@/lib/env';
 
 const valid = {
   DATABASE_URL: 'postgres://app:pw@localhost:5432/lavaos',
-  MIGRATION_DATABASE_URL: 'postgres://owner:pw@localhost:5432/lavaos',
   TEST_DATABASE_URL: 'postgres://app:pw@localhost:5432/lavaos_test',
   BETTER_AUTH_SECRET: 'x'.repeat(32),
   BETTER_AUTH_URL: 'http://localhost:3000',
@@ -18,6 +17,12 @@ describe('parseServerEnv', () => {
 
   it('aceita ambiente válido e devolve só as variáveis validadas', () => {
     expect(parseServerEnv({ ...valid, OUTRA: 'ignorada' })).toEqual(valid);
+  });
+
+  it('produção sobe sem banco de testes nem de migration', () => {
+    const env = parseServerEnv({ ...valid, TEST_DATABASE_URL: undefined, LAVAOS_MODE: 'production' });
+    expect(env.TEST_DATABASE_URL).toBeUndefined();
+    expect(env.DATABASE_URL).toBe(valid.DATABASE_URL);
   });
 
   it('recusa secret curto', () => {

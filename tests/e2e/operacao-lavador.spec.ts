@@ -278,6 +278,19 @@ test('ação com conflito mostra a mensagem, vibra longo e recarrega', async ({ 
   expect(await vibracoes(page)).toEqual([120]);
 });
 
+test('sem rede no toque, a fila continua na tela com o aviso; com a rede de volta o toque funciona', async ({ page }) => {
+  const placa = await semear('aguardando', null);
+  await entrar(page);
+  await expect(cartao(page, placa).getByRole('button')).toHaveText(['Pegar']);
+  await page.context().setOffline(true);
+  await cartao(page, placa).getByRole('button', { name: 'Pegar' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Sem conexão' })).toBeVisible();
+  await expect(cartao(page, placa).getByRole('button')).toHaveText(['Pegar']);
+  await page.context().setOffline(false);
+  await cartao(page, placa).getByRole('button', { name: 'Pegar' }).click();
+  await expect(cartao(page, placa).getByRole('button')).toHaveText(['Pronto']);
+});
+
 test('a fila atualiza quando outra pessoa muda uma OS, sem recarregar', async ({ page, browser }) => {
   await entrar(page);
   await page.evaluate(() => ((window as { marca?: number }).marca = 1)); // some se a página recarregar

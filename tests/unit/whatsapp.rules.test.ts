@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { formatarReais, linkWhatsapp, mensagemEntrada, mensagemPronto } from '@/modules/clientes/whatsapp.rules';
+import { formatarReais } from '@/modules/catalogo/catalogo.rules';
+import { linkWhatsapp, mensagemEntrada, mensagemPronto } from '@/modules/clientes/whatsapp.rules';
 
 describe('linkWhatsapp', () => {
   it('três formatos do mesmo número geram o mesmo link', () => {

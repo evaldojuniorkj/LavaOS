@@ -1,5 +1,5 @@
 /**
- * `pnpm verify:operacao` (e o alias `pnpm verify:foundation`): lint → typecheck → test (unit+integration) → build → E2E,
+ * `pnpm verify:operacao`: lint → typecheck → test (unit+integration) → build → E2E,
  * em sequência (unit/integration/E2E dividem lavaos_test) e parando no primeiro erro. O E2E reaproveita o build
  * recém-feito neste mesmo processo; `pnpm test:e2e` sozinho sempre recompila.
  * Recusa testes exclusivos, pulados ou condicionais: nenhum teste de segurança pode ficar de fora.

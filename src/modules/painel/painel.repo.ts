@@ -11,7 +11,7 @@ export type Painel = {
   atualizadoEm: Date;
   contagem: { aguardando: number; emLavagem: number; pronto: number; entreguesHoje: number };
   tempoMedioLavagemMin: number | null;
-  atrasadas: { id: string; numero: number; placa: string | null; status: 'aguardando' | 'em_lavagem'; minutos: number }[];
+  atrasadas: { id: string; numero: number; placa: string | null; modelo: string | null; status: 'aguardando' | 'em_lavagem'; minutos: number }[];
   lavadores: { membroId: string; nome: string; livre: boolean; osEmLavagem: number[] }[];
 };
 
@@ -31,6 +31,7 @@ export async function carregarPainel(ctx: TenantContext, agora = new Date(), db:
         prontoEm: ordensServico.prontoEm,
         entregueEm: ordensServico.entregueEm,
         placa: veiculos.placa,
+        modelo: veiculos.modelo,
       })
       .from(ordensServico)
       .innerJoin(veiculos, and(eq(veiculos.tenantId, ordensServico.tenantId), eq(veiculos.id, ordensServico.veiculoId)))
@@ -59,7 +60,7 @@ export async function carregarPainel(ctx: TenantContext, agora = new Date(), db:
     if (o.status !== 'aguardando' && o.status !== 'em_lavagem') continue;
     if (estaAtrasada(o, agora)) {
       const desde = o.status === 'em_lavagem' ? (o.inicioLavagemEm ?? o.entradaEm) : o.entradaEm;
-      atrasadas.push({ id: o.id, numero: o.numero, placa: o.placa, status: o.status, minutos: minutosEntre(desde, agora) });
+      atrasadas.push({ id: o.id, numero: o.numero, placa: o.placa, modelo: o.modelo, status: o.status, minutos: minutosEntre(desde, agora) });
     }
   }
 

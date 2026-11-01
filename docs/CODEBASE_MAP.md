@@ -60,7 +60,7 @@ Padrão de cada módulo: `*.rules.ts` (regras puras) → `*.repo.ts` (consultas 
 |---|---|
 | `db-local-init.sql` | Roles `lavaos_owner` (DDL) e `lavaos_app` (DML), bancos `lavaos_dev`/`lavaos_test` (compose e CI) |
 | `seed-dev.ts` | `pnpm db:seed:dev`: tenant + dono local; recusa produção e bancos não locais |
-| `verify-operacao.ts` | `pnpm verify:operacao` (e o alias `verify:foundation`): lint → typecheck → test → build → E2E, falha imediata; recusa `.only/.skip/.todo/.fixme`, `skipIf/runIf`, `concurrent.skip`, `xit/xdescribe/fit` |
+| `verify-operacao.ts` | `pnpm verify:operacao`: lint → typecheck → test → build → E2E, falha imediata; recusa `.only/.skip/.todo/.fixme`, `skipIf/runIf`, `concurrent.skip`, `xit/xdescribe/fit` |
 | `gerar-icones.ts` | Gera os ícones do PWA a partir de um SVG com o Chromium do Playwright |
 
 ## `src/`

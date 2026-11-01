@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Placa } from '@/components/ui/placa';
 import { cn } from '@/lib/utils';
-import { centesimosParaTexto } from '@/modules/catalogo/catalogo.rules';
+import { formatarReais } from '@/modules/catalogo/catalogo.rules';
 import { buscarOsPublica, type OsPublica } from '@/modules/ordens/publico.repo';
 import { AoVivo } from './ao-vivo';
 
@@ -26,7 +26,6 @@ const TITULO: Record<OsPublica['status'], string> = {
 };
 
 const hora = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-const reais = (c: number) => `R$ ${centesimosParaTexto(c)}`;
 
 function Indisponivel() {
   return (
@@ -101,7 +100,7 @@ export default async function AcompanharPage({ params }: { params: Promise<{ tok
           {os.itens.map((item, i) => (
             <li key={i} className="flex justify-between gap-4 text-base text-tinta">
               <span>{item.nome}</span>
-              <span className="tabular-nums">{reais(item.valorCentavos)}</span>
+              <span className="tabular-nums">{formatarReais(item.valorCentavos)}</span>
             </li>
           ))}
         </ul>
@@ -110,13 +109,13 @@ export default async function AcompanharPage({ params }: { params: Promise<{ tok
             <span>{ajuste < 0 ? 'Desconto' : 'Acréscimo'}</span>
             <span className="tabular-nums">
               {ajuste < 0 ? '−' : '+'}
-              {reais(Math.abs(ajuste))}
+              {formatarReais(Math.abs(ajuste))}
             </span>
           </p>
         )}
         <p className="mt-4 flex justify-between gap-4 border-t border-linha pt-3 text-lg font-bold text-tinta">
           <span>Total</span>
-          <span className="tabular-nums">{reais(os.totalCentavos)}</span>
+          <span className="tabular-nums">{formatarReais(os.totalCentavos)}</span>
         </p>
       </section>
 

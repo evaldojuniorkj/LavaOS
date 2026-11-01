@@ -65,8 +65,8 @@ describe('carregarPainel', () => {
       await os({ status: 'pronto', entradaEm: min(500), prontoEm: min(1) });
       const { atrasadas } = await carregarPainel(ctx, AGORA, db);
       expect(atrasadas).toEqual([
-        { id: b.id, numero: b.numero, placa: 'ABC1D23', status: 'em_lavagem', minutos: 90 },
-        { id: a.id, numero: a.numero, placa: 'ABC1D23', status: 'aguardando', minutos: 61 },
+        { id: b.id, numero: b.numero, placa: 'ABC1D23', modelo: null, status: 'em_lavagem', minutos: 90 },
+        { id: a.id, numero: a.numero, placa: 'ABC1D23', modelo: null, status: 'aguardando', minutos: 61 },
       ]);
     }));
 

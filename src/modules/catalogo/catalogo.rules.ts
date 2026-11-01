@@ -18,6 +18,12 @@ export function centesimosParaTexto(valor: number): string {
   return `${Math.floor(valor / 100)},${String(valor % 100).padStart(2, '0')}`;
 }
 
+/** R$ 1.234,56 só com inteiros (centavos). */
+export function formatarReais(centavos: number): string {
+  const reais = String(Math.floor(centavos / 100)).replace(/\B(?=(\d{3})+$)/g, '.');
+  return `R$ ${reais},${String(centavos % 100).padStart(2, '0')}`;
+}
+
 export const INT4_MAX = 2_147_483_647;
 /** Teto de preço, desconto e acréscimo (R$ 100.000,00): 30 itens somados ainda cabem em int4. */
 export const PRECO_MAXIMO_CENTAVOS = 10_000_000;

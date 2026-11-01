@@ -11,11 +11,11 @@ import { Label } from '@/components/ui/label';
 import { AvisosWhatsapp } from '@/components/whatsapp-button';
 import { useEventos } from '@/components/use-eventos';
 import type { ActionResult } from '@/modules/catalogo/catalogo.actions';
-import { centesimosParaTexto, decimalParaCentesimos } from '@/modules/catalogo/catalogo.rules';
+import { centesimosParaTexto, formatarReais, decimalParaCentesimos } from '@/modules/catalogo/catalogo.rules';
 import { ajustarValorAction, atribuirResponsavelAction, editarItensAction, listarFilaAction, listarLavadoresAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
 import { ERROS_RECARREGAR_FILA, type StatusOs } from '@/modules/ordens/ordens.rules';
 import type { OsView, OsViewGestao } from '@/modules/ordens/ordens.views';
-import { cn, tempoDesde } from '@/lib/utils';
+import { cn, SEM_CONEXAO, tempoDesde } from '@/lib/utils';
 
 export type Pode = { assumir: boolean; atribuir: boolean; corrigir: boolean; entregar: boolean; cancelar: boolean; ajustarValor: boolean; verValores: boolean };
 type Lavador = { membroId: string; nome: string; livre: boolean; sugerido: boolean };
@@ -27,7 +27,6 @@ const COLUNAS: { status: StatusOs; titulo: string }[] = [
   { status: 'pronto', titulo: 'Pronto' },
 ];
 const comValores = (os: OsView): os is OsViewGestao => 'totalCentavos' in os; // a visão do lavador não tem nenhum valor
-const reais = (c: number) => `R$ ${centesimosParaTexto(c)}`;
 const erroDe = (r: Extract<ActionResult<unknown>, { ok: false }>) =>
   r.code === 'ACESSO_NEGADO' ? 'Seu perfil não pode fazer isso.' : r.code === 'VALIDACAO' ? (Object.values(r.fieldErrors ?? {})[0]?.[0] ?? 'Dados inválidos.') : r.message;
 
@@ -38,6 +37,9 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
   const [dialogo, setDialogo] = useState<Dialogo | null>(null);
   const [pendente, iniciar] = useTransition();
   const [agora, setAgora] = useState(() => Date.now());
+  const [atualizadoEm, setAtualizadoEm] = useState(agora);
+  const [falhouAtualizacao, setFalhouAtualizacao] = useState(false);
+  const [tentandoNovamente, tentarNovamente] = useTransition();
   useEffect(() => {
     const t = setInterval(() => setAgora(Date.now()), 30_000);
     return () => clearInterval(t);
@@ -47,10 +49,13 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
   const focar = useRef<{ el: Element | null; osId: string; aposRecarga: boolean } | null>(null);
   const recarregar = useCallback(async () => {
     const n = ++seq.current; // recargas podem se sobrepor (SSE e ação): só a mais recente vale
-    const r = await listarFilaAction();
-    if (!r.ok || n !== seq.current) return;
+    const r = await listarFilaAction().catch(() => null);
+    if (n !== seq.current) return;
+    setFalhouAtualizacao(!r?.ok);
+    if (!r?.ok) return;
     if (focar.current) focar.current.aposRecarga = false;
     setFila(r.data);
+    setAtualizadoEm(Date.now());
   }, []);
 
   // diálogo fechado por uma ação: o foco volta a quem o abriu ou, se o botão sumiu na recarga, ao cartão (Esc/✕ o navegador já devolve)
@@ -70,7 +75,7 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
   /** Executa a action; conflito e afins mostram a mensagem e recarregam. Erros de campo voltam para o diálogo. */
   const executar = (acao: () => Promise<ActionResult<unknown>>, onErroCampo?: (e: Record<string, string[]>) => void, manterAberto = false) =>
     iniciar(async () => {
-      const r = await acao();
+      const r = await acao().catch(() => SEM_CONEXAO);
       if (!r.ok && r.code === 'VALIDACAO' && r.fieldErrors && onErroCampo) return onErroCampo(r.fieldErrors);
       const recarga = r.ok || (ERROS_RECARREGAR_FILA as readonly string[]).includes(r.code);
       setErro(r.ok ? '' : erroDe(r));
@@ -94,6 +99,16 @@ export function FilaBoard({ inicial, pode, meuId, servicos }: { inicial: OsView[
           {reconectando ? 'Reconectando…' : ''}
         </p>
       </div>
+      {falhouAtualizacao && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-sinal/25 p-3">
+          <p role="alert" className="text-base font-semibold text-tinta">
+            Não foi possível atualizar a fila. Mostrando dados de {new Date(atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}.
+          </p>
+          <Button variante="secundario" disabled={tentandoNovamente} onClick={() => tentarNovamente(recarregar)}>
+            {tentandoNovamente ? 'Atualizando…' : 'Tentar novamente'}
+          </Button>
+        </div>
+      )}
       <Alerta texto={erro} />
       <div className="grid gap-4 md:grid-cols-3">
         {COLUNAS.map((c) => {
@@ -190,7 +205,7 @@ function Cartao({ os, agora, pode, meuId, pendente, onTransitar, onDialogo }: {
       </ul>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className={cn('text-base', os.responsavel ? 'font-semibold text-tinta' : 'text-suave italic')}>{os.responsavel?.nomeExibicao ?? 'Sem responsável'}</p>
-        {comValores(os) && <p className="text-lg font-bold text-tinta">{reais(os.totalCentavos)}</p>}
+        {comValores(os) && <p className="text-lg font-bold text-tinta">{formatarReais(os.totalCentavos)}</p>}
       </div>
       {comValores(os) && pode.verValores && os.status !== 'entregue' && os.status !== 'cancelada' && <AvisosWhatsapp os={os} />}
       {acoes.length > 0 && (
@@ -337,7 +352,7 @@ function EditarOs({ os, servicos, pode, pendente, executar }: {
           <li key={i.id} className="flex items-center justify-between gap-3 p-2 pl-3">
             <span>
               {i.nome}
-              {'valorCentavos' in i && <span className="ml-2 text-suave">{reais(i.valorCentavos)}</span>}
+              {'valorCentavos' in i && <span className="ml-2 text-suave">{formatarReais(i.valorCentavos)}</span>}
             </span>
             <Button variante="secundario" className="px-3" disabled={pendente} onClick={() => editarItens({ remover: [i.id] })} aria-label={`Remover ${i.nome}`}>
               Remover
@@ -389,7 +404,7 @@ function EditarOs({ os, servicos, pode, pendente, executar }: {
             executar(() => ajustarValorAction({ osId: os.id, descontoCentavos: desconto, acrescimoCentavos: acrescimo }), setErros);
           }}
         >
-          <p className="font-semibold">Total: {reais(os.totalCentavos)}</p>
+          <p className="font-semibold">Total: {formatarReais(os.totalCentavos)}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Campo id="editar-desconto" name="desconto" rotulo="Desconto (R$)" inputMode="decimal" defaultValue={centesimosParaTexto(os.descontoCentavos)} erro={erros.descontoCentavos?.[0]} autoComplete="off" />
             <Campo id="editar-acrescimo" name="acrescimo" rotulo="Acréscimo (R$)" inputMode="decimal" defaultValue={centesimosParaTexto(os.acrescimoCentavos)} erro={erros.acrescimoCentavos?.[0]} autoComplete="off" />

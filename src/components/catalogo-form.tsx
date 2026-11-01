@@ -7,11 +7,10 @@ import { Campo } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { definirPrecoAction, salvarPorteAction, salvarServicoAction, type ActionResult } from '@/modules/catalogo/catalogo.actions';
 import type { Porte, ServicoComPrecos } from '@/modules/catalogo/catalogo.repo';
-import { centesimosParaTexto, decimalParaCentesimos } from '@/modules/catalogo/catalogo.rules';
+import { centesimosParaTexto, formatarReais, decimalParaCentesimos } from '@/modules/catalogo/catalogo.rules';
 
 type Erros = Record<string, string[] | undefined>;
 const erroDe = (r: ActionResult<unknown>) => (r.ok ? '' : r.code === 'VALIDACAO' ? 'Revise os campos destacados.' : r.message);
-const reais = (c: number) => `R$ ${centesimosParaTexto(c)}`;
 const campoSelect = 'block min-h-11 w-full rounded-md border border-linha bg-white px-3 text-base';
 
 export function Alerta({ texto }: { texto: string }) {
@@ -228,7 +227,7 @@ function PrecoForm({ servico, porte, onAviso }: { servico: ServicoComPrecos; por
       <Button type="submit" variante="secundario" disabled={pendente}>
         {pendente ? 'Salvando…' : 'Salvar preço'}
       </Button>
-      {atual !== undefined && <span className="sr-only">Preço atual {reais(atual)}</span>}
+      {atual !== undefined && <span className="sr-only">Preço atual {formatarReais(atual)}</span>}
       <div className="w-full empty:hidden">
         <Alerta texto={erro} />
       </div>

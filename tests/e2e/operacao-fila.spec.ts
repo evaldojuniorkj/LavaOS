@@ -264,6 +264,61 @@ test('queda do stream mostra Reconectando… e se recupera sozinha', async ({ pa
   await outra.context().close();
 });
 
+for (const falha of ['rede', 'servidor', 'resposta'] as const) {
+  test(`falha de ${falha} na atualização preserva a fila, avisa e permite recuperar`, async ({ page }) => {
+    await entrar(page, 'recepcao@e2e.test');
+    const placa = await abrirOsNova(page);
+    const erros: string[] = [];
+    page.on('pageerror', (erro) => erros.push(erro.message));
+    let falhar = true;
+    let tentativas = 0;
+    await page.route('**/fila', async (route, req) => {
+      const headers = await req.allHeaders();
+      if (!falhar || req.method() !== 'POST' || !headers['next-action']) return route.continue();
+      tentativas++;
+      if (falha === 'rede') return route.abort();
+      if (falha === 'servidor') return route.fulfill({ status: 503, contentType: 'text/plain', body: 'Indisponível' });
+      // Cookie inválido passa pelo proxy otimista, mas a action retorna ok:false; o stream mantém a sessão real.
+      const response = await route.fetch({ headers: { ...headers, cookie: headers.cookie.replace(/=[^;]*/g, '=invalido') } });
+      expect((await response.text()).includes('"ok":false')).toBe(true);
+      return route.fulfill({ response });
+    });
+    await page.reload(); // o ready do stream dispara a leitura, que falha
+    const aviso = page.getByRole('alert').filter({ hasText: 'Não foi possível atualizar a fila.' });
+    await expect(aviso).toContainText(/Mostrando dados de \d{2}:\d{2}:\d{2}/);
+    await expect(cartao(page, placa)).toBeVisible();
+    await expect(page.getByText('Reconectando…', { exact: true })).toBeHidden();
+    const texto = await aviso.innerText();
+    const antes = tentativas;
+    await page.getByRole('button', { name: 'Tentar novamente' }).click();
+    await expect.poll(() => tentativas).toBeGreaterThan(antes);
+    await expect(page.getByRole('button', { name: 'Tentar novamente' })).toBeEnabled();
+    await expect(aviso).toHaveText(texto); // nova falha não avança a hora dos dados válidos
+    await semRolagemHorizontal(page);
+
+    const outra = await page.context().newPage();
+    try {
+      const novaPlaca = await abrirOsNova(outra);
+      await expect(cartao(page, novaPlaca)).toHaveCount(0);
+      falhar = false;
+      if (falha === 'resposta') {
+        // Um evento posterior também recupera a fila e retira o aviso, sem clique.
+        await cancelar(outra, placa);
+      } else {
+        await page.getByRole('button', { name: 'Tentar novamente' }).click();
+      }
+      await expect(aviso).toHaveCount(0);
+      await expect(cartao(page, novaPlaca)).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Tentar novamente' })).toHaveCount(0);
+      expect(erros).toEqual([]);
+      await cancelar(outra, novaPlaca);
+      if (falha !== 'resposta') await cancelar(outra, placa);
+    } finally {
+      await outra.close();
+    }
+  });
+}
+
 test('lavador com PIN redefinido e stream caído vai ao login (autorização real, não só sessão)', async ({ page, browser }) => {
   const s = SUFIXO();
   const nome = `Fila ${s}`;

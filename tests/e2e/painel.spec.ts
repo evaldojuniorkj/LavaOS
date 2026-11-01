@@ -50,7 +50,7 @@ async function semearAtrasada(comCliente = false) {
      values ($1, $2, $3, (select id from membros where tenant_id = $1 and nome_exibicao = 'Recepcao E2E'), 'aguardando', now() - interval '70 minutes', $4, 5000, 5000)`,
     [t.id, ultimo, v.id, randomBytes(32).toString('base64url')],
   );
-  return { placa, numero: ultimo };
+  return { placa, numero: ultimo, veiculoId: v.id };
 }
 
 const cartao = (page: Page, titulo: string) => page.getByRole('heading', { name: titulo, level: 2, exact: true }).locator('xpath=..').locator('p');
@@ -98,6 +98,30 @@ test('OS atrasada semeada no banco aparece em "OSs atrasadas" com número e plac
   await expect(item).toContainText(placa);
   await expect(item).toContainText('Aguardando');
   await semRolagemHorizontal(page);
+});
+
+test('carros atrasados sem placa são identificados pelo modelo no painel', async ({ page }) => {
+  const carros = [
+    { ...await semearAtrasada(), modelo: 'Toyota Corolla Cross Hybrid XRX 2026' },
+    { ...await semearAtrasada(), modelo: 'VolkswagenNivusHighlineSemPlacaModelo2026' },
+  ];
+  try {
+    for (const c of carros) await pool.query('update veiculos set placa = null, modelo = $1 where id = $2', [c.modelo, c.veiculoId]);
+    await entrarStaff(page, 'gerente@e2e.test');
+    await expect(page).toHaveURL('/painel');
+    const secao = page.getByRole('region', { name: 'OSs atrasadas' });
+    for (const c of carros) {
+      const item = secao.getByRole('listitem').filter({ has: page.getByText(`OS ${c.numero}`, { exact: true }) });
+      await expect(item.getByText('SEM PLACA', { exact: true })).toBeVisible();
+      await expect(item.getByText(c.modelo, { exact: true })).toBeVisible();
+      await expect(item).toContainText('Aguardando');
+      await expect(item).not.toContainText(/null|undefined/);
+    }
+    await semRolagemHorizontal(page);
+  } finally {
+    // Restaura as placas usadas pelo afterEach para encerrar só as OSs deste teste.
+    for (const c of carros) await pool.query('update veiculos set placa = $1 where id = $2', [c.placa, c.veiculoId]);
+  }
 });
 
 test('recepção abre o painel pelo menu: vê só contagens (sem R$, link público ou telefone) e segue sem Equipe', async ({ page }) => {

@@ -8,7 +8,7 @@ import { Campo } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { ActionResult } from '@/modules/catalogo/catalogo.actions';
 import type { Porte } from '@/modules/catalogo/catalogo.repo';
-import { centesimosParaTexto } from '@/modules/catalogo/catalogo.rules';
+import { formatarReais } from '@/modules/catalogo/catalogo.rules';
 import { buscarPorPlacaAction, cadastroRapidoAction } from '@/modules/clientes/clientes.actions';
 import { normalizarPlaca } from '@/modules/clientes/clientes.rules';
 import { abrirOsAction } from '@/modules/ordens/ordens.actions';
@@ -209,7 +209,7 @@ export function NovaOsForm({ portes, servicos, lavadores, titulo = 'Nova OS', de
                 {s.nome}
                 {s.adicional && <span className="ml-2 text-sm text-suave">adicional</span>}
               </span>
-              {s.valorCentavos !== undefined && <span className="font-semibold">R$ {centesimosParaTexto(s.valorCentavos)}</span>}
+              {s.valorCentavos !== undefined && <span className="font-semibold">{formatarReais(s.valorCentavos)}</span>}
             </label>
           ))}
           {erros.servicoIds?.[0] && (

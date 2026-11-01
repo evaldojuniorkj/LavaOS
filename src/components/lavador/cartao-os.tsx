@@ -9,7 +9,7 @@ import { tintaDoStatus } from '@/components/ui/status-visual';
 import { listarFilaAction, transitarOsAction } from '@/modules/ordens/ordens.actions';
 import { ERROS_RECARREGAR_FILA, type StatusOs } from '@/modules/ordens/ordens.rules';
 import type { OsView } from '@/modules/ordens/ordens.views';
-import { cn, tempoDesde } from '@/lib/utils';
+import { cn, SEM_CONEXAO, tempoDesde } from '@/lib/utils';
 import { useVibrar } from './use-vibrar';
 import { useWakeLock } from './use-wake-lock';
 
@@ -43,14 +43,14 @@ export function FilaLavador({ inicial, meuId }: { inicial: OsView[]; meuId: stri
   const seq = useRef(0);
   const recarregar = useCallback(async () => {
     const n = ++seq.current; // recargas podem se sobrepor (SSE e ação): só a mais recente vale
-    const r = await listarFilaAction();
-    if (r.ok && n === seq.current) setFila(r.data);
+    const r = await listarFilaAction().catch(() => null); // sem rede: fica a última fila; o SSE recarrega ao reconectar
+    if (r?.ok && n === seq.current) setFila(r.data);
   }, []);
   const { reconectando } = useEventos(recarregar);
 
   const transitar = (os: OsView, para: StatusOs) =>
     iniciar(async () => {
-      const r = await transitarOsAction({ osId: os.id, esperado: os.status, para });
+      const r = await transitarOsAction({ osId: os.id, esperado: os.status, para }).catch(() => SEM_CONEXAO);
       vibrar(r.ok ? 30 : 120);
       setErro(r.ok ? '' : erroDe(r));
       if (r.ok || (ERROS_RECARREGAR_FILA as readonly string[]).includes(r.code)) await recarregar();

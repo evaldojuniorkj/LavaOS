@@ -81,6 +81,7 @@ export function PainelView({ inicial }: { inicial: Painel }) {
                   <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                     <span className="font-bold text-tinta">OS {o.numero}</span>
                     <Placa valor={o.placa} />
+                    {!o.placa && o.modelo && <span className="min-w-0 wrap-anywhere font-semibold text-tinta">{o.modelo}</span>}
                   </span>
                   <span className="text-base text-suave">
                     {o.status === 'aguardando' ? 'Aguardando' : 'Em lavagem'} · <span className="font-semibold text-tinta">{duracao(o.minutos)}</span>

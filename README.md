@@ -102,7 +102,6 @@ Num banco sem lava jato, `/primeiro-acesso` cria o lava jato (slug = `LAVAOS_PIL
 | `pnpm test` | Vitest: projetos `unit` e depois `integration` (`pnpm test:unit`, `pnpm test:integration` para um só) |
 | `pnpm test:e2e` | Playwright (projetos desktop, mobile, android/android-small para o app do lavador e onboarding-desktop/onboarding-mobile para o assistente): compila, zera `lavaos_test`, cria as fixtures e sobe o servidor standalone em `http://localhost:3100` com `LAVAOS_MODE=test` (e um segundo, em `:3101`, com o assistente de primeiro acesso ligado sobre o schema vazio `onboarding` do mesmo banco); encerra o servidor ao fim |
 | `pnpm verify:operacao` | lint → typecheck → test → build → E2E, parando no primeiro erro; o E2E reaproveita o build recém-feito; recusa testes marcados `.only/.skip/.todo/.fixme`, `skipIf/runIf`, `concurrent.skip`, `xit/xdescribe/fit` |
-| `pnpm verify:foundation` | Alias do mesmo script (mesmo gate) |
 
 Integração e E2E **zeram** `lavaos_test` e rodam em série (nunca em paralelo entre si). A URL vem de uma só fonte, `tests/helpers/test-db.ts` (padrões do compose ou `TEST_DATABASE_URL`/`MIGRATION_DATABASE_URL` do `.env.local`), e a limpeza só aceita o banco `lavaos_test` em `localhost`/`127.0.0.1`/`[::1]`. O E2E gera a cada execução o `BETTER_AUTH_SECRET`, as senhas e o PIN das fixtures; traces só ficam em `test-results/` local (ignorado pelo git) e são desligados no CI.
 

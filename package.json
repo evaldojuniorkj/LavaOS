@@ -19,7 +19,6 @@
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
     "verify:operacao": "node scripts/verify-operacao.ts",
-    "verify:foundation": "node scripts/verify-operacao.ts",
     "db:generate": "node --env-file-if-exists=.env.local ./node_modules/drizzle-kit/bin.cjs generate",
     "db:migrate": "node --env-file-if-exists=.env.local ./node_modules/drizzle-kit/bin.cjs migrate",
     "db:seed:dev": "node --env-file-if-exists=.env.local scripts/seed-dev.ts"

@@ -1,3 +1,6 @@
+/** Action que nem chegou ao servidor (rede caiu): vira erro comum, para a tela mostrar a mensagem em vez de quebrar. */
+export const SEM_CONEXAO = { ok: false, code: 'SEM_CONEXAO', message: 'Sem conexão. Confira a internet e tente de novo.' } as const;
+
 export const cn = (...classes: (string | false | null | undefined)[]) => classes.filter(Boolean).join(' ');
 
 /** "há 5 min" / "há 1 h 05 min". */

@@ -8,8 +8,8 @@ const dbUrl = z.string().refine((v) => URL.canParse(v) && /^postgres(ql)?:$/.tes
 const schema = z
   .object({
     DATABASE_URL: dbUrl,
-    MIGRATION_DATABASE_URL: dbUrl,
-    TEST_DATABASE_URL: dbUrl,
+    // só do ambiente local/CI: produção não define e o runtime não usa (migrations e testes leem process.env direto)
+    TEST_DATABASE_URL: dbUrl.optional(),
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),
     LAVAOS_PILOT_SLUG: z.string().min(1),
@@ -18,6 +18,7 @@ const schema = z
     LAVAOS_SETUP_TOKEN: z.preprocess((v) => v || undefined, z.string().min(16).optional()),
   })
   .superRefine((env, ctx) => {
+    if (!env.TEST_DATABASE_URL) return;
     const test = new URL(env.TEST_DATABASE_URL);
     if (test.pathname !== '/lavaos_test' || !LOCAL_HOSTS.includes(test.hostname)) {
       ctx.addIssue({ code: 'custom', path: ['TEST_DATABASE_URL'], message: 'deve ser o banco lavaos_test em host local' });
