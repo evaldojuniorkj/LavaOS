@@ -20,6 +20,17 @@ describe('hub', () => {
     cancelar.forEach((c) => c());
   });
 
+  it('evento sem osId (caixa) nunca chega a quem filtra por OS, como o SSE público', () => {
+    const tenant: Mensagem[] = [];
+    const soOs1: Mensagem[] = [];
+    const cancelar = [hub.assinar({ tenantId: A }, (e) => tenant.push(e)), hub.assinar({ tenantId: A, osId: 'os-1' }, (e) => soOs1.push(e))];
+    hub.emitir({ tenantId: A, tipo: 'caixa' });
+    hub.emitir({ tenantId: A, osId: 'os-1', tipo: 'pagamento' });
+    expect(tenant).toEqual([{ tenantId: A, tipo: 'caixa' }, { tenantId: A, osId: 'os-1', tipo: 'pagamento' }]);
+    expect(soOs1).toEqual([{ tenantId: A, osId: 'os-1', tipo: 'pagamento' }]);
+    cancelar.forEach((c) => c());
+  });
+
   it('cancelar assinatura para de entregar', () => {
     const recebidos: Mensagem[] = [];
     const cancelar = hub.assinar({ tenantId: A }, (e) => recebidos.push(e));

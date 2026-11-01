@@ -1,6 +1,8 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { getDatabase } from '@/lib/db/client';
+import { caixas, pagamentos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
+import { eq } from 'drizzle-orm';
 import { carregarPainel } from '@/modules/painel/painel.repo';
 import { createAuthFixtures, type AuthFixtures } from '../helpers/auth';
 import { withTestDatabase } from '../helpers/db';
@@ -91,6 +93,7 @@ describe('carregarPainel', () => {
         tempoMedioLavagemMin: null,
         atrasadas: [],
         lavadores: [expect.objectContaining({ livre: true })],
+        caixa: { status: 'sem_caixa', recebidoPorForma: { dinheiro: 0, pix: 0, debito: 0, credito: 0 }, recebidoTotal: 0 },
       });
     }));
 
@@ -102,6 +105,33 @@ describe('carregarPainel', () => {
       const p = await carregarPainel(ctx, AGORA, db);
       expect(p.atrasadas).toHaveLength(1);
       expect(p.contagem.aguardando).toBe(1);
-      expect(chaves(p).filter((k) => /token|telefone|valor|total|centavos/i.test(k))).toEqual([]);
+      expect(chaves(p).filter((k) => /token|telefone/i.test(k))).toEqual([]);
+      expect(chaves({ ...p, caixa: null }).filter((k) => /valor|total|centavos/i.test(k))).toEqual([]); // R$ só no resumo do caixa (o lavador nem acessa o painel)
+    }));
+
+  it('caixa de hoje: recebido por forma sem estornados; ontem e outro tenant fora; estado aberto/fechado', () =>
+    run(async ({ db, f, ctx, os }) => {
+      const rec = f.a.membros.recepcao.memberId;
+      const caixa = (tenantId: string, abertoPor: string, data: string, status: 'aberto' | 'fechado' = 'aberto') =>
+        db.insert(caixas).values({ tenantId, data, trocoInicialCentavos: 0, abertoPor, status }).returning().then(([c]) => c);
+      const pagar = (tenantId: string, osId: string, caixaId: string, recebidoPor: string, forma: 'dinheiro' | 'pix' | 'debito' | 'credito', valorCentavos: number, estornado = false) =>
+        db.insert(pagamentos).values({ tenantId, osId, caixaId, forma, valorCentavos, recebidoPor, ...(estornado && { estornadoEm: AGORA, estornadoPor: recebidoPor, motivoEstorno: 'teste' }) });
+
+      const o = await os();
+      const ontem = await caixa(f.a.tenantId, rec, '2026-10-29', 'fechado');
+      await pagar(f.a.tenantId, o.id, ontem.id, rec, 'pix', 7000);
+      expect((await carregarPainel(ctx, AGORA, db)).caixa).toEqual({ status: 'sem_caixa', recebidoPorForma: { dinheiro: 0, pix: 0, debito: 0, credito: 0 }, recebidoTotal: 0 });
+
+      const hoje = await caixa(f.a.tenantId, rec, '2026-10-30');
+      await pagar(f.a.tenantId, o.id, hoje.id, rec, 'pix', 3000);
+      await pagar(f.a.tenantId, o.id, hoje.id, rec, 'dinheiro', 2000);
+      await pagar(f.a.tenantId, o.id, hoje.id, rec, 'credito', 1000, true);
+      const vb = await semearVeiculo(db, f.b.tenantId);
+      const ob = await criarOs(db, { tenantId: f.b.tenantId, veiculoId: vb.id, abertaPor: f.b.membros.recepcao.memberId });
+      await pagar(f.b.tenantId, ob.id, (await caixa(f.b.tenantId, f.b.membros.recepcao.memberId, '2026-10-30')).id, f.b.membros.recepcao.memberId, 'debito', 9900);
+
+      expect((await carregarPainel(ctx, AGORA, db)).caixa).toEqual({ status: 'aberto', recebidoPorForma: { dinheiro: 2000, pix: 3000, debito: 0, credito: 0 }, recebidoTotal: 5000 });
+      await db.update(caixas).set({ status: 'fechado' }).where(eq(caixas.id, hoje.id));
+      expect((await carregarPainel(ctx, AGORA, db)).caixa).toMatchObject({ status: 'fechado', recebidoTotal: 5000 });
     }));
 });

@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import pg from 'pg';
 import { testUrls } from '../helpers/test-db';
+import { liberarCaixaDeHoje, quitarOs, semearOsPronta } from './dinheiro';
 import { E2E_PILOT_SLUG } from './global-setup';
 import { entrarLavador, entrarStaff, pin, semRolagemHorizontal } from './login';
 
@@ -124,21 +125,40 @@ test('carros atrasados sem placa são identificados pelo modelo no painel', asyn
   }
 });
 
-test('recepção abre o painel pelo menu: vê só contagens (sem R$, link público ou telefone) e segue sem Equipe', async ({ page }) => {
+test('recepção abre o painel pelo menu: vê contagens e o recebido do dia (sem link público ou telefone) e segue sem Equipe', async ({ page }) => {
   await semearAtrasada(true); // há OS atrasada de cliente com telefone: o controle de que a varredura teria o que achar
   await entrarStaff(page, 'recepcao@e2e.test');
   await expect(page).toHaveURL('/fila');
   await page.getByRole('link', { name: 'Painel' }).click();
   await expect(page).toHaveURL('/painel');
   for (const t of ['Aguardando', 'Em lavagem', 'Pronto', 'Entregues hoje']) await expect(cartao(page, t)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Recebido hoje' })).toBeVisible(); // spec §5.8: a recepção vê o recebido; o lavador nem acessa o painel
   await expect(page.getByRole('region', { name: 'OSs atrasadas' }).getByRole('listitem').first()).toBeVisible();
   await semRolagemHorizontal(page);
   const corpos = [await (await page.request.get('/painel')).text(), await (await page.request.get('/painel', { headers: { RSC: '1' } })).text(), await page.locator('body').innerText()];
   for (const c of corpos) {
-    for (const p of ['R$', 'acompanhar/', '988887777', '977776666', 'Cliente Existente E2E']) expect(c, p).not.toContain(p);
+    for (const p of ['acompanhar/', '988887777', '977776666', 'Cliente Existente E2E']) expect(c, p).not.toContain(p);
   }
   await page.goto('/configuracoes/equipe');
   await expect(page.getByRole('heading', { name: 'Acesso negado' })).toBeVisible();
+});
+
+test('"Recebido hoje" sai do caixa de hoje e sobe sem recarregar quando entra um pagamento', async ({ page }) => {
+  await liberarCaixaDeHoje(); // caixa próprio: o de hoje pode ter pagamentos de outros specs
+  try {
+    await entrarStaff(page, 'dono@e2e.test');
+    await expect(page).toHaveURL('/painel');
+    const recebido = page.getByRole('region', { name: 'Recebido hoje' });
+    await expect(recebido).toContainText('Nenhum caixa aberto hoje');
+    await expect(recebido).toContainText('R$ 0,00');
+    await quitarOs(await semearOsPronta(8000)); // abre o caixa de hoje e recebe R$ 80,00 em Pix, avisando pelo NOTIFY
+    await expect(recebido).toContainText('Caixa aberto');
+    await expect(recebido.getByRole('listitem').filter({ hasText: 'Pix' })).toContainText('R$ 80,00');
+    await expect(recebido.getByText('R$ 80,00', { exact: true })).toHaveCount(2); // total e Pix
+    await semRolagemHorizontal(page);
+  } finally {
+    await liberarCaixaDeHoje();
+  }
 });
 
 test('lavador pedindo /painel vai a /lavador sem o painel; visitante vai ao login com retorno', async ({ page, browser }) => {

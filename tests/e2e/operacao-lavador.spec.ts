@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import pg from 'pg';
 import { testUrls } from '../helpers/test-db';
+import { quitarOs } from './dinheiro';
 import { E2E_PILOT_SLUG } from './global-setup';
 import { entrarLavador, entrarStaff, pin, semRolagemHorizontal } from './login';
 
@@ -11,7 +12,7 @@ const um = async <T = Record<string, string>>(sql: string, params: unknown[] = [
 
 const PLACA_EXISTENTE = 'EXS1A23';
 // nada disso pode chegar ao lavador: valores, telefone e id do cliente da fixture, comissão e token público
-const PROIBIDOS = ['R$', 'Centavos', 'telefone', '988887777', 'comissao', 'token', 'clienteId'];
+const PROIBIDOS = ['R$', 'Centavos', 'pagoCentavos', 'telefone', '988887777', 'comissao', 'token', 'clienteId'];
 // campos só da visão de gestão da OS: valem só nas telas do balcão
 const CAMPOS_GESTAO = ['lavaJato', 'urlAcompanhar'];
 
@@ -136,8 +137,9 @@ test('cartão mostra o botão certo por estado, meus carros primeiro e OS de out
   await semRolagemHorizontal(page);
 });
 
-test('nenhum R$, telefone, token ou comissão no texto, no HTML, no RSC, nas actions nem no SSE', async ({ page }) => {
+test('nenhum R$, pagamento, telefone, token ou comissão no texto, no HTML, no RSC, nas actions nem no SSE', async ({ page }) => {
   const placa = await semear('aguardando', null);
+  const paga = await semear('aguardando', null); // na fila do lavador, com pagamento
   const corpos: string[] = [];
   // tudo que a página recebe, menos código estático (/_next/static) e o stream SSE (lido abaixo pelo próprio EventSource)
   await page.route('**/*', async (route) => {
@@ -153,11 +155,16 @@ test('nenhum R$, telefone, token ou comissão no texto, no HTML, no RSC, nas act
     w.sse = [];
     new EventSource('/api/eventos').onmessage = (e) => w.sse!.push(e.data);
   });
+  await quitarOs(paga); // evento `pagamento` com a tela aberta: a fila recarrega com a OS paga
+  await expect(cartao(page, paga)).toBeVisible();
   await cartao(page, placa).getByRole('button', { name: 'Pegar' }).click();
   await cartao(page, placa).getByRole('button', { name: 'Pronto' }).click();
   await expect(cartao(page, placa).getByRole('button')).toHaveCount(0);
-  await expect.poll(() => page.evaluate(() => (window as { sse?: string[] }).sse!.length)).toBeGreaterThan(0);
-  const sse = await page.evaluate(() => (window as { sse?: string[] }).sse!.join('\n'));
+  await expect.poll(() => page.evaluate(() => (window as { sse?: string[] }).sse!.join())).toContain('"tipo":"pagamento"');
+  const mensagens = await page.evaluate(() => (window as { sse?: string[] }).sse!);
+  const sse = mensagens.join('\n');
+  // SSE só com ids e tipo: o tipo `pagamento` chega, o valor nunca
+  for (const m of mensagens) expect(['osId', 'tenantId', 'tipo'], m).toEqual(expect.arrayContaining(Object.keys(JSON.parse(m))));
 
   await page.getByRole('link', { name: 'Nova lavagem' }).click();
   await page.getByLabel('Placa', { exact: true }).fill(PLACA_EXISTENTE);
@@ -174,9 +181,9 @@ test('nenhum R$, telefone, token ou comissão no texto, no HTML, no RSC, nas act
   expect(tudo).toContain('Cliente Existente E2E'); // controle: a resposta da busca por placa foi lida
   expect(tudo).toContain('Lavagem completa'); // controle: fila e catálogo foram lidos
   expect(corpos.some((c) => c.startsWith('POST /lavador\n'))).toBe(true); // controle: as actions da fila foram lidas
-  for (const p of PROIBIDOS) {
+  for (const p of PROIBIDOS) expect(sse, `SSE: ${p}`).not.toContain(p);
+  for (const p of [...PROIBIDOS, 'pagamento']) {
     expect(texto, `texto visível: ${p}`).not.toContain(p);
-    expect(sse, `SSE: ${p}`).not.toContain(p);
     for (const c of corpos) expect(c, `${c.split('\n')[0]}: ${p}`).not.toContain(p);
   }
 });

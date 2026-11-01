@@ -10,6 +10,7 @@ const os: OsCompleta = {
   descontoCentavos: 0,
   acrescimoCentavos: 0,
   totalCentavos: 6500,
+  pagoCentavos: 2000,
   tokenPublico: 'tok',
   urlAcompanhar: 'https://lavaos.test/acompanhar/tok',
   lavaJato: 'Lava X',
@@ -36,7 +37,8 @@ describe('toOsView', () => {
   it('lavador: nenhuma chave com Centavos/comissão, nem token ou telefone (varredura recursiva)', () => {
     const v = toOsView('lavador', os);
     const ks = chaves(v);
-    expect(ks.filter((k) => /centavos|comissao|valor|total|token|telefone|url|cliente_?id|lavajato/i.test(k))).toEqual([]);
+    expect(ks.filter((k) => /centavos|comissao|valor|total|pago|token|telefone|url|cliente_?id|lavajato/i.test(k))).toEqual([]);
+    expect(v).not.toHaveProperty('pagoCentavos');
     expect(v).toMatchObject({ numero: 7, cliente: { nome: 'Ana' }, itens: [{ nome: 'Lavagem' }, { nome: 'Cera' }], responsavel: { id: 'm1', nomeExibicao: 'Zé' } });
   });
 
@@ -44,6 +46,7 @@ describe('toOsView', () => {
     expect(toOsView(perfil, os)).toMatchObject({
       subtotalCentavos: 6500,
       totalCentavos: 6500,
+      pagoCentavos: 2000,
       tokenPublico: 'tok',
       urlAcompanhar: 'https://lavaos.test/acompanhar/tok',
       lavaJato: 'Lava X',

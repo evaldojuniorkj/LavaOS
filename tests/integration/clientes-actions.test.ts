@@ -9,6 +9,7 @@ import { buscarPorPlacaAction, cadastroRapidoAction, salvarClienteAction, salvar
 import { createAuthFixtures, type AuthFixtures } from '../helpers/auth';
 import { withTestDatabase } from '../helpers/db';
 import { createHttp } from '../helpers/http';
+import { esperarNoLock } from '../helpers/ordens';
 
 const req = vi.hoisted(() => ({ headers: new Headers() }));
 vi.mock('next/headers', () => ({ headers: async () => req.headers }));
@@ -275,5 +276,26 @@ describe('clientes.actions', () => {
       // criar sem placa segue recusado
       expect(await salvarVeiculoAction({ porteId: porte.id, placa: '' })).toMatchObject({ ok: false, fieldErrors: { placa: ['Informe a placa.'] } });
       expect(await db.select().from(veiculos).where(eq(veiculos.id, comPlaca.id))).toMatchObject([{ placa: 'AAA1111' }]);
+    }));
+
+  it('editar veículo sem placa enquanto outra transação grava a placa: espera e recusa, nunca apaga a placa', () =>
+    run(async (db, f) => {
+      const porte = await porteDe(db, f.a.tenantId);
+      const [moto] = await db.insert(veiculos).values({ tenantId: f.a.tenantId, placa: null, porteId: porte.id }).returning();
+      await como(f, f.a.membros.dono.userId);
+      const gravou = Promise.withResolvers<void>();
+      const solta = Promise.withResolvers<void>();
+      const outra = db.transaction(async (tx) => {
+        await tx.update(veiculos).set({ placa: 'CCC3D33' }).where(eq(veiculos.id, moto.id));
+        gravou.resolve();
+        await solta.promise;
+      });
+      await gravou.promise;
+      const edicao = salvarVeiculoAction({ id: moto.id, porteId: porte.id, placa: '', modelo: 'CG' });
+      await esperarNoLock(db, 1);
+      solta.resolve();
+      await outra;
+      expect(await edicao).toMatchObject({ ok: false, fieldErrors: { placa: ['Informe a placa.'] } });
+      expect(await db.select().from(veiculos).where(eq(veiculos.id, moto.id))).toMatchObject([{ placa: 'CCC3D33', modelo: null }]);
     }));
 });

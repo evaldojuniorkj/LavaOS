@@ -12,7 +12,7 @@ export default async function InternoLayout({ children }: { children: React.Reac
   if (ctx.perfil === 'lavador') redirect('/lavador'); // só UX: o lavador tem o app próprio; cada página e action seguem conferindo a permissão
   const membro = await findMember(ctx, ctx.memberId);
   return (
-    <AppShell nome={membro?.nomeExibicao ?? ''} perfil={ctx.perfil} podePainel={can(ctx.perfil, 'painel:ver')} podeFila={can(ctx.perfil, 'fila:ver')} podeAbrirOs={can(ctx.perfil, 'os:abrir')} podeEquipe={can(ctx.perfil, 'equipe:gerenciar')} podeCatalogo={can(ctx.perfil, 'catalogo:gerenciar')} podeClientes={can(ctx.perfil, 'clientes:gerenciar')}>
+    <AppShell nome={membro?.nomeExibicao ?? ''} perfil={ctx.perfil} podePainel={can(ctx.perfil, 'painel:ver')} podeFila={can(ctx.perfil, 'fila:ver')} podeAbrirOs={can(ctx.perfil, 'os:abrir')} podeCaixa={can(ctx.perfil, 'caixa:operar')} podeDespesas={can(ctx.perfil, 'despesas:gerenciar')} podeEquipe={can(ctx.perfil, 'equipe:gerenciar')} podeCatalogo={can(ctx.perfil, 'catalogo:gerenciar')} podeClientes={can(ctx.perfil, 'clientes:gerenciar')}>
       {children}
     </AppShell>
   );

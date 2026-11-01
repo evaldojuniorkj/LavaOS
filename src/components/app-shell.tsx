@@ -3,10 +3,18 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { IconeCatalogo, IconeClientes, IconeEquipe, IconeFila, IconeNova, IconePainel } from '@/components/ui/icones';
+import { IconeCaixa, IconeCatalogo, IconeClientes, IconeDespesas, IconeEquipe, IconeFila, IconeMais, IconeNova, IconePainel } from '@/components/ui/icones';
 import { authClient } from '@/lib/auth/client';
 import type { Perfil } from '@/lib/auth/types';
 import { cn } from '@/lib/utils';
+
+const ABA = cn(
+  'group flex min-h-16 flex-col items-center justify-center gap-0.5 px-0.5 text-[11px] font-semibold sm:text-xs text-suave transition active:scale-95',
+  'aria-[current=page]:text-agua',
+  'lg:min-h-12 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-3 lg:text-base lg:font-semibold lg:text-white/75 lg:hover:bg-white/10 lg:active:scale-100',
+  'lg:aria-[current=page]:bg-white/15 lg:aria-[current=page]:text-white',
+);
+const ICONE_ABA = 'rounded-full px-4 py-1 transition-colors group-aria-[current=page]:bg-agua/15 lg:p-0 lg:group-aria-[current=page]:bg-transparent';
 
 export const PERFIL_ROTULO: Record<Perfil, string> = { dono: 'Dono', gerente: 'Gerente', recepcao: 'Recepção', lavador: 'Lavador' };
 
@@ -14,18 +22,23 @@ export const PERFIL_ROTULO: Record<Perfil, string> = { dono: 'Dono', gerente: 'G
  * Celular: barra de abas embaixo (polegar) e barra de título em cima. A partir de `lg`: menu lateral (§6 da spec).
  * Uma só `<nav>` muda de lugar por CSS, então os links não se duplicam. Só mostra telas existentes e por permissão; é conveniência, a regra é do servidor.
  */
-export function AppShell({ nome, perfil, podePainel, podeFila, podeAbrirOs, podeEquipe, podeCatalogo, podeClientes, children }: { nome: string; perfil: Perfil; podePainel: boolean; podeFila: boolean; podeAbrirOs: boolean; podeEquipe: boolean; podeCatalogo: boolean; podeClientes: boolean; children: React.ReactNode }) {
+export function AppShell({ nome, perfil, podePainel, podeFila, podeAbrirOs, podeCaixa, podeDespesas, podeEquipe, podeCatalogo, podeClientes, children }: { nome: string; perfil: Perfil; podePainel: boolean; podeFila: boolean; podeAbrirOs: boolean; podeCaixa: boolean; podeDespesas: boolean; podeEquipe: boolean; podeCatalogo: boolean; podeClientes: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [saindo, setSaindo] = useState(false);
+  const [mais, setMais] = useState(false);
   const itens = [
     ...(podePainel ? [{ href: '/painel', rotulo: 'Painel', icone: <IconePainel /> }] : []),
     ...(podeFila ? [{ href: '/fila', rotulo: 'Fila', icone: <IconeFila /> }] : []),
     ...(podeAbrirOs ? [{ href: '/nova-os', rotulo: 'Nova OS', icone: <IconeNova /> }] : []),
+    ...(podeCaixa ? [{ href: '/caixa', rotulo: 'Caixa', icone: <IconeCaixa /> }] : []),
+    ...(podeDespesas ? [{ href: '/despesas', rotulo: 'Despesas', icone: <IconeDespesas /> }] : []),
     ...(podeClientes ? [{ href: '/clientes', rotulo: 'Clientes', icone: <IconeClientes /> }] : []),
     ...(podeEquipe ? [{ href: '/configuracoes/equipe', rotulo: 'Equipe', icone: <IconeEquipe /> }] : []),
     ...(podeCatalogo ? [{ href: '/configuracoes/catalogo', rotulo: 'Catálogo', icone: <IconeCatalogo /> }] : []),
   ];
+  // celular: até 5 abas cabem em 360 px; acima disso, 4 abas + "Mais" com o resto (o menu lateral mostra todas)
+  const resto = itens.length > 5 ? itens.slice(4) : [];
 
   async function sair() {
     setSaindo(true);
@@ -82,23 +95,52 @@ export function AppShell({ nome, perfil, podePainel, podeFila, podeAbrirOs, pode
         )}
       >
         <ul className="flex lg:flex-col lg:gap-1">
-          {itens.map((i) => (
-            <li key={i.href} className="min-w-0 flex-1">
-              <Link
-                href={i.href}
-                aria-current={pathname === i.href ? 'page' : undefined}
-                className={cn(
-                  'group flex min-h-16 flex-col items-center justify-center gap-0.5 px-0.5 text-[11px] font-semibold sm:text-xs text-suave transition active:scale-95',
-                  'aria-[current=page]:text-agua',
-                  'lg:min-h-12 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-3 lg:text-base lg:font-semibold lg:text-white/75 lg:hover:bg-white/10 lg:active:scale-100',
-                  'lg:aria-[current=page]:bg-white/15 lg:aria-[current=page]:text-white',
-                )}
-              >
-                <span className="rounded-full px-4 py-1 transition-colors group-aria-[current=page]:bg-agua/15 lg:p-0 lg:group-aria-[current=page]:bg-transparent">{i.icone}</span>
+          {itens.map((i, n) => (
+            <li key={i.href} className={cn('min-w-0 flex-1', resto.length > 0 && n >= 4 && 'hidden lg:block')}>
+              <Link href={i.href} aria-current={pathname === i.href ? 'page' : undefined} className={ABA}>
+                <span className={ICONE_ABA}>{i.icone}</span>
                 {i.rotulo}
               </Link>
             </li>
           ))}
+          {resto.length > 0 && (
+            <li
+              className="min-w-0 flex-1 lg:hidden"
+              onKeyDown={(e) => e.key === 'Escape' && setMais(false)}
+              onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setMais(false)} // toque fora fecha
+            >
+              <button
+                type="button"
+                aria-expanded={mais}
+                aria-controls="menu-mais"
+                aria-current={resto.some((i) => i.href === pathname) ? 'page' : undefined}
+                onClick={() => setMais(!mais)}
+                className={cn(ABA, 'w-full')}
+              >
+                <span className={ICONE_ABA}>
+                  <IconeMais />
+                </span>
+                Mais
+              </button>
+              {mais && (
+                <ul id="menu-mais" className="absolute right-2 bottom-full mb-2 w-56 space-y-1 rounded-2xl border border-linha bg-white p-2 shadow-cartao">
+                  {resto.map((i) => (
+                    <li key={i.href}>
+                      <Link
+                        href={i.href}
+                        aria-current={pathname === i.href ? 'page' : undefined}
+                        onClick={() => setMais(false)}
+                        className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-base font-semibold text-tinta aria-[current=page]:bg-agua/15 aria-[current=page]:text-agua"
+                      >
+                        {i.icone}
+                        {i.rotulo}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          )}
         </ul>
       </nav>
 

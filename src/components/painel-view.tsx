@@ -5,12 +5,15 @@ import { Placa } from '@/components/ui/placa';
 import { tintaDoStatus } from '@/components/ui/status-visual';
 import { useEventos } from '@/components/use-eventos';
 import { cn, duracao } from '@/lib/utils';
+import { FORMAS, ROTULO_FORMA } from '@/modules/caixa/caixa.rules';
+import { formatarReais } from '@/modules/catalogo/catalogo.rules';
 import { carregarPainelAction } from '@/modules/painel/painel.actions';
 import type { Painel } from '@/modules/painel/painel.repo';
 
 const hhmm = (d: Date) => new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const ESTADO_CAIXA = { aberto: 'Caixa aberto', fechado: 'Caixa fechado', sem_caixa: 'Nenhum caixa aberto hoje' } as const;
 
-/** Painel de leitura da gestão: o servidor calcula tudo (sem valores); eventos SSE e um relógio de 60 s só disparam recargas. */
+/** Painel de leitura da gestão: o servidor calcula tudo (R$ só o recebido do dia); eventos SSE e um relógio de 60 s só disparam recargas. */
 export function PainelView({ inicial }: { inicial: Painel }) {
   const [painel, setPainel] = useState(inicial);
   const [falhou, setFalhou] = useState(false);
@@ -60,10 +63,30 @@ export function PainelView({ inicial }: { inicial: Painel }) {
         ))}
       </div>
 
-      <section className="rounded-3xl bg-white p-5 shadow-cartao">
-        <h2 className="text-lg font-bold text-tinta">Tempo médio de lavagem</h2>
-        <p className="mt-1 text-4xl font-extrabold tracking-tight text-tinta">{painel.tempoMedioLavagemMin === null ? '—' : `${painel.tempoMedioLavagemMin} min`}</p>
-      </section>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section aria-labelledby="painel-recebido" className="rounded-3xl bg-white p-5 shadow-cartao">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="painel-recebido" className="text-lg font-bold text-tinta">
+              Recebido hoje
+            </h2>
+            <p className={cn('rounded-full px-3 py-1 text-sm font-semibold', painel.caixa.status === 'aberto' ? 'bg-agua/15 text-agua-escura' : 'bg-enxague text-tinta')}>{ESTADO_CAIXA[painel.caixa.status]}</p>
+          </div>
+          <p className="mt-1 text-4xl font-extrabold tracking-tight text-tinta">{formatarReais(painel.caixa.recebidoTotal)}</p>
+          <ul className="mt-3 grid gap-x-6 gap-y-1 text-base sm:grid-cols-2">
+            {FORMAS.map((f) => (
+              <li key={f} className="flex justify-between gap-2">
+                <span className="text-suave">{ROTULO_FORMA[f]}</span>
+                <span className="font-semibold text-tinta">{formatarReais(painel.caixa.recebidoPorForma[f])}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="rounded-3xl bg-white p-5 shadow-cartao">
+          <h2 className="text-lg font-bold text-tinta">Tempo médio de lavagem</h2>
+          <p className="mt-1 text-4xl font-extrabold tracking-tight text-tinta">{painel.tempoMedioLavagemMin === null ? '—' : `${painel.tempoMedioLavagemMin} min`}</p>
+        </section>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section aria-labelledby="painel-atrasadas" className="rounded-3xl bg-white p-5 shadow-cartao">

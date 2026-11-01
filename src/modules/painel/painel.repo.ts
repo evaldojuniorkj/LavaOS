@@ -1,9 +1,11 @@
 import 'server-only';
-import { and, eq, gte, inArray, or } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { TenantContext } from '@/lib/auth/types';
 import { getDatabase } from '@/lib/db/client';
-import { ordensServico, veiculos } from '@/lib/db/schema';
+import { ordensServico, pagamentos, veiculos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
+import { caixaDoDia } from '@/modules/caixa/caixa.repo';
+import { FORMAS, type Forma } from '@/modules/caixa/caixa.rules';
 import { listarLavadoresParaDirecionar } from '@/modules/ordens/ordens.repo';
 import { estaAtrasada, inicioDoDia, minutosEntre, tempoMedioLavagem } from './painel.rules';
 
@@ -13,13 +15,31 @@ export type Painel = {
   tempoMedioLavagemMin: number | null;
   atrasadas: { id: string; numero: number; placa: string | null; modelo: string | null; status: 'aguardando' | 'em_lavagem'; minutos: number }[];
   lavadores: { membroId: string; nome: string; livre: boolean; osEmLavagem: number[] }[];
+  caixa: { status: 'aberto' | 'fechado' | 'sem_caixa'; recebidoPorForma: Record<Forma, number>; recebidoTotal: number };
 };
 
-/** Só contagens e tempos: nenhum valor, token ou telefone sai daqui (o painel é de leitura para a gestão). */
-export async function carregarPainel(ctx: TenantContext, agora = new Date(), db: Pick<Database, 'select'> = getDatabase()): Promise<Painel> {
+type Leitor = Pick<Database, 'select'>;
+
+/** Recebido no caixa de hoje (sem estornados), somado no banco por forma. */
+async function caixaDeHoje(ctx: TenantContext, agora: Date, db: Leitor): Promise<Painel['caixa']> {
+  const c = await caixaDoDia(ctx, agora, db);
+  const recebidoPorForma = Object.fromEntries(FORMAS.map((f) => [f, 0])) as Record<Forma, number>;
+  if (c) {
+    const somas = await db
+      .select({ forma: pagamentos.forma, total: sql<number>`sum(${pagamentos.valorCentavos})::int` })
+      .from(pagamentos)
+      .where(and(eq(pagamentos.tenantId, ctx.tenantId), eq(pagamentos.caixaId, c.id), isNull(pagamentos.estornadoEm)))
+      .groupBy(pagamentos.forma);
+    for (const s of somas) recebidoPorForma[s.forma] = s.total;
+  }
+  return { status: c?.status ?? 'sem_caixa', recebidoPorForma, recebidoTotal: FORMAS.reduce((t, f) => t + recebidoPorForma[f], 0) };
+}
+
+/** Contagens, tempos e o recebido do dia: nenhum token ou telefone sai daqui (o lavador nem acessa o painel). */
+export async function carregarPainel(ctx: TenantContext, agora = new Date(), db: Leitor = getDatabase()): Promise<Painel> {
   const hoje = inicioDoDia(agora);
   // shortcut: agrega em memória; um dia de lava jato cabe folgado, migrar para count/avg em SQL se passar de alguns milhares de OSs/dia.
-  const [oss, lavadores] = await Promise.all([
+  const [oss, lavadores, caixa] = await Promise.all([
     db
       .select({
         id: ordensServico.id,
@@ -42,6 +62,7 @@ export async function carregarPainel(ctx: TenantContext, agora = new Date(), db:
         ),
       ),
     listarLavadoresParaDirecionar(ctx, db),
+    caixaDeHoje(ctx, agora, db),
   ]);
 
   const contagem = { aguardando: 0, emLavagem: 0, pronto: 0, entreguesHoje: 0 };
@@ -72,5 +93,6 @@ export async function carregarPainel(ctx: TenantContext, agora = new Date(), db:
     lavadores: lavadores
       .map((l) => ({ membroId: l.membroId, nome: l.nome, livre: l.livre, osEmLavagem: (porLavador.get(l.membroId) ?? []).sort((a, b) => a - b) }))
       .sort((a, b) => Number(b.livre) - Number(a.livre)),
+    caixa,
   };
 }

@@ -1,5 +1,6 @@
-import { PERFIS, lavaJatos, membros, user, type Perfil } from '@/lib/db/schema';
+import { PERFIS, categoriasDespesa, lavaJatos, membros, user, type Perfil } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
+import { CATEGORIAS_PADRAO } from '@/modules/despesas/categorias-padrao';
 
 export type MemberFixture = { userId: string; memberId: string };
 export type TenantFixture = { tenantId: string; slug: string; membros: Record<Perfil, MemberFixture> };
@@ -22,6 +23,7 @@ async function createMember(db: Database, tenantId: string, userId: string, perf
 
 async function createTenant(db: Database, slug: string): Promise<TenantFixture> {
   const [t] = await db.insert(lavaJatos).values({ nome: `Lava Jato ${slug}`, slug }).returning({ id: lavaJatos.id });
+  await db.insert(categoriasDespesa).values(CATEGORIAS_PADRAO.map((c) => ({ tenantId: t.id, ...c })));
   const entries = await Promise.all(
     PERFIS.map(async (perfil) => {
       const userId = await createUser(db, `${perfil} ${slug}`);

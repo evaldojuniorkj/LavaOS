@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
+import { quitarOs } from './dinheiro';
 import { entrarLavador, entrarStaff, semRolagemHorizontal, SUFIXO } from './login';
 
 // Catálogo, veículo existente e o segundo lavador vêm do global-setup. O app do lavador (/lavador) tem o próprio spec.
@@ -132,7 +133,7 @@ test('sem sessão, /clientes leva ao login com next e, depois de entrar, volta p
 test('fila mostra colunas Aguardando | Em lavagem | Pronto', async ({ page }) => {
   await entrar(page, 'recepcao@e2e.test');
   await expect(page.getByRole('heading', { level: 2 })).toHaveText([/^Aguardando/, /^Em lavagem/, /^Pronto/]);
-  await expect(page.getByRole('navigation', { name: 'Principal' }).getByRole('link')).toHaveText(['Painel', 'Fila', 'Nova OS', 'Clientes']);
+  await expect(page.getByRole('navigation', { name: 'Principal' }).getByRole('link')).toHaveText(['Painel', 'Fila', 'Nova OS', 'Caixa', 'Clientes']);
   await semRolagemHorizontal(page);
 });
 
@@ -150,7 +151,8 @@ test('segunda aba vê a OS aparecer sem recarregar', async ({ page, browser }) =
   await expect(coluna(page, 'Em lavagem').getByRole('article').filter({ hasText: placa })).toContainText('Gerente E2E');
   await cartao(ger, placa).getByRole('button', { name: 'Marcar pronto' }).click();
   await expect(coluna(page, 'Pronto').getByRole('article').filter({ hasText: placa })).toBeVisible();
-  await cartao(page, placa).getByRole('button', { name: 'Entregar' }).click();
+  await quitarOs(placa);
+  await cartao(page, placa).getByRole('button', { name: 'Entregar', exact: true }).click();
   await expect(cartao(ger, placa)).toHaveCount(0);
   for (const p of [page, ger]) expect(await p.evaluate(() => (window as { marca?: number }).marca)).toBe(1);
   await ger.context().close();

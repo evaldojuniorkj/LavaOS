@@ -1,7 +1,7 @@
 # LavaOS
 Projeto de um SAAS para Lava jato.
 
-Estado atual: **Fase 2 — Painel** concluída sobre a Fase 1 — Operação e a Fase 0 — Fundação. Na Fase 1 o pátio já funciona: catálogo, clientes e veículos, ordens de serviço, fila em tempo real, link público de acompanhamento, avisos por WhatsApp, app do lavador (PWA Android) e assistente de primeiro acesso. Caixa e comissões chegam nas fases seguintes (veja [Limites da Fase 1](#limites-da-fase-1)).
+Estado atual: **Fase 4 — Dinheiro** concluída sobre as Fases 0 (Fundação), 1 (Operação) e 2 (Painel). O pátio funciona (catálogo, clientes e veículos, ordens de serviço, fila em tempo real, link público, WhatsApp, app do lavador em PWA, assistente de primeiro acesso) e o dinheiro também: caixa, recebimento, entrega só quitada e despesas. Comissões chegam na Fase 5 (veja [Limites](#limites)).
 
 ## Ambiente
 
@@ -27,6 +27,9 @@ pnpm dev                       # http://localhost:3000
 | `http://localhost:3000/login` | Login: e-mail e senha (dono, gerente, recepção) ou usuário e PIN (lavador) |
 | `http://localhost:3000/inicio` | Início, para os quatro perfis |
 | `http://localhost:3000/fila` | Fila em tempo real (Aguardando, Em lavagem, Pronto) para dono, gerente e recepção; o lavador é levado a `/lavador` |
+| `http://localhost:3000/painel` | Painel ao vivo (dono, gerente e recepção), com o recebido do dia |
+| `http://localhost:3000/caixa` | Caixa do dia: abrir com troco, recebido por forma, pagamentos e estorno, saídas, fechar com contagem e reabrir (dono, gerente e recepção) |
+| `http://localhost:3000/despesas` | Despesas, contas a pagar e categorias (dono e gerente) |
 | `http://localhost:3000/nova-os` | Nova OS pela placa (veículo existente ou cadastro rápido), serviços e responsável opcional |
 | `http://localhost:3000/clientes` | Clientes e veículos |
 | `http://localhost:3000/configuracoes/catalogo` | Portes, serviços, adicionais, preços por porte e comissão por serviço |
@@ -49,7 +52,7 @@ pnpm dev                       # http://localhost:3000
 
 - **Catálogo** (`/configuracoes/catalogo`, dono e gerente): portes, serviços principais e adicionais, preço por porte em centavos e comissão obrigatória por serviço (percentual ou valor fixo; o cálculo da comissão é da Fase 5).
 - **Clientes e veículos** (`/clientes`): placa normalizada (`ABC-1D23` → `ABC1D23`, padrões antigo e Mercosul), telefone em E.164.
-- **Ordem de serviço** (`/nova-os`): busca pela placa ou cadastro rápido; ao menos um serviço principal (adicional só junto de um principal); o total vem do servidor a partir dos preços, que ficam copiados na OS. Um único responsável, opcional na abertura, com sugestão de lavador livre (só orientação). Status `aguardando → em_lavagem → pronto → entregue`, ou `cancelada` com motivo; entregue e cancelada são definitivas e somente leitura. Enquanto a OS está ativa, dono, gerente e recepção corrigem os itens; desconto e acréscimo são só de dono e gerente.
+- **Ordem de serviço** (`/nova-os`): busca pela placa ou cadastro rápido; ao menos um serviço principal (adicional só junto de um principal); o total vem do servidor a partir dos preços, que ficam copiados na OS. Um único responsável, opcional na abertura, com sugestão de lavador livre (só orientação). Status `aguardando → em_lavagem → pronto → entregue`, ou `cancelada` com motivo; cancelada é definitiva e somente leitura; entregue também, salvo a reabertura da Fase 4. Enquanto a OS está ativa, dono, gerente e recepção corrigem os itens; desconto e acréscimo são só de dono e gerente.
 - **Fila em tempo real** (`/fila`): cada mudança gera `pg_notify` na mesma transação; o servidor repassa por SSE só ids e tipo do evento e cada tela recarrega a visão do seu perfil. Duas pessoas agindo na mesma OS: uma vence, a outra vê a mensagem (ex.: "Essa OS já foi pega por …") e a tela recarrega.
 - **Link público** (`/acompanhar/<token>`): status, linha do tempo, serviços e total, sem nomes da equipe; ao vivo enquanto aberto; token de 32 bytes que expira 7 dias após a entrega ou cancelamento; link inválido ou expirado mostra sempre a mesma página genérica.
 - **WhatsApp**: botões "Enviar acompanhamento" e "Avisar pronto" abrem `wa.me` com a mensagem pronta (placa, link, total); sem telefone, o botão pede e salva no cliente. Nada é enviado automaticamente.
@@ -58,13 +61,26 @@ pnpm dev                       # http://localhost:3000
 
 ## Fase 2 — Painel
 
-- **Painel** (`/painel`, permissão `painel:ver`: dono, gerente e recepção): contagens de Aguardando, Em lavagem, Pronto e Entregues hoje, tempo médio de lavagem, lavadores livres/ocupados e OSs atrasadas. Ao vivo por SSE (mais uma recarga a cada 60 s); sem valores em R$, telefone nem link público. Dono e gerente começam no painel, recepção na fila, lavador em `/lavador`.
+- **Painel** (`/painel`, permissão `painel:ver`: dono, gerente e recepção): contagens de Aguardando, Em lavagem, Pronto e Entregues hoje, tempo médio de lavagem, lavadores livres/ocupados e OSs atrasadas. Ao vivo por SSE (mais uma recarga a cada 60 s); sem telefone nem link público. Desde a Fase 4 mostra o "Recebido hoje" (abaixo). Dono e gerente começam no painel, recepção na fila, lavador em `/lavador`.
 - **Atraso:** OS aguardando ou em lavagem há mais de 60 min (aguardando conta da entrada; em lavagem, do início da lavagem).
 - **"Dia"** (Entregues hoje) é o dia civil em America/Sao_Paulo.
 - **Veículo sem placa:** a OS pode abrir sem placa (modelo de 2 a 40 caracteres identifica o carro).
 - **Testes:** unit/integration e E2E dividem `lavaos_test`; um lock mútuo (advisory) impede duas suítes de rodarem ao mesmo tempo.
 - **Redesign de app:** menu lateral no desktop, abas inferiores no celular, placa Mercosul e cores por status.
-- Recebido do dia e caixa aberto/fechado ficam para a Fase 4.
+
+## Fase 4 — Dinheiro
+
+Valores sempre em centavos inteiros. Tabelas `caixas`, `pagamentos`, `categorias_despesa` e `despesas` (migração `0005_financeiro.sql`), sem `DELETE` para `lavaos_app`: correção é por estorno ou cancelamento registrado.
+
+- **Caixa** (`/caixa`, `caixa:operar`): um por lava jato por dia (dia civil em America/Sao_Paulo) e no máximo um aberto. Abre com o troco inicial; caixa de dia anterior esquecido aberto bloqueia tudo até ser fechado ("Feche o caixa de DD/MM antes"). Fechar pede o dinheiro contado e mostra a diferença antes de confirmar: `esperado em dinheiro = troco + dinheiro recebido − despesas pagas com dinheiro do caixa`; Pix, débito e crédito mostram só o esperado. Fechado volta só por "Reabrir caixa" (`caixa:reabrir`, só o de hoje).
+- **Recebimento** (fila): "Receber" em qualquer OS ativa e "Receber e entregar" no Pronto; formas dinheiro, Pix, débito e crédito; em dinheiro, "Recebido do cliente" calcula o troco. Vários pagamentos por OS, a soma nunca passa do total; o cartão mostra "Pago R$ x de R$ y". Exige o caixa aberto de hoje.
+- **Entrega exige quitação** (toda OS): "Entregar" só aparece quitada e o servidor recusa com "Falta receber R$ …". Total zero entrega sem pagamento e sem caixa. Cancelar exige estornar os pagamentos antes; editar itens ou dar desconto não pode deixar o total abaixo do já pago.
+- **Estorno** (`caixa:estornar`, na tela do caixa): com motivo, só de pagamento do caixa aberto de hoje e nunca em OS entregue.
+- **Reabertura** (`os:reabrir`, em "Entregues hoje" na fila): `entregue → pronto` com motivo, registrada no histórico da OS; depois dela o estorno é aceito.
+- **Despesas** (`/despesas`, `despesas:gerenciar`): lançar paga (com data) ou a pagar (com vencimento); "Paga com dinheiro do caixa" (só com o caixa de hoje aberto) vira saída da gaveta e baixa o esperado. Contas a pagar por vencimento, vencidas em destaque, "Marcar como paga"; despesas do mês; cancelar com motivo; categorias (Produtos, Água e luz, Aluguel, Vales, Outros e "Comissões", de sistema e travada).
+- **Painel:** cartão "Recebido hoje" com a quebra por forma (sem estornados) e o estado do caixa (aberto, fechado ou nenhum caixa aberto hoje).
+- **Permissões novas:** `caixa:operar` (dono, gerente, recepção); `caixa:reabrir`, `caixa:estornar`, `despesas:gerenciar` e `os:reabrir` (dono, gerente). O lavador continua sem nenhum valor: `pagoCentavos` só existe na visão de gestão e os eventos SSE levam só ids e tipo.
+- **Menu:** com mais de 5 itens, as abas do celular mostram os 4 primeiros e "Mais".
 
 ### Rodar e popular
 
@@ -107,11 +123,11 @@ Integração e E2E **zeram** `lavaos_test` e rodam em série (nunca em paralelo 
 
 CI: `.github/workflows/quality.yml` (Node de `.node-version`, pnpm de `packageManager`, `--frozen-lockfile`, Postgres 16 como serviço em `127.0.0.1:55432`, roles/bancos via `scripts/db-local-init.sql`, migrations, browsers do Playwright e `pnpm verify:operacao`). Nenhum artefato de teste é publicado. **A CI ainda não foi executada no GitHub**: o workflow só foi validado localmente (sintaxe YAML e os mesmos comandos).
 
-## Limites da Fase 1
+## Limites
 
-A Fase 1 controla o pátio. **Não existem ainda**: app nativo (Fase 3), pagamento, caixa e quitação antes da entrega (Fase 4 — aqui "Entregar" não valida pagamento), geração de comissões (Fase 5; a comissão só é cadastrada e copiada na OS), agenda e relatórios (Fase 6), avaliação (Fase 7), produção/deploy (Fase 8) e fidelidade (Fase 9). Também fora: reabrir OS entregue, dividir uma OS entre lavadores e WhatsApp automático (só links `wa.me`).
+**Não existem ainda**: geração de comissões e vales ligados ao lavador (Fase 5; a comissão só é cadastrada e copiada na OS, e o vale é uma despesa da categoria "Vales"), produção/deploy (Fase 8), agenda e relatórios por período (Fase 6), avaliação (Fase 7), app nativo (Fase 3) e fidelidade (Fase 9). Também fora: fiado/pós-pago, dividir uma OS entre lavadores e WhatsApp automático (só links `wa.me`).
 
-0 Fundação → 1 Operação → 2 Painel → 3 App nativo → 4 Dinheiro → 5 Comissões → 6 Gestão → 7 Avaliação → 8 Produção → 9 Fidelidade.
+Ordem de execução (fases numeradas, [roteiro](docs/superpowers/plans/2026-10-31-roteiro.md)): 0 Fundação → 1 Operação → 2 Painel → 4 Dinheiro → 5 Comissões → 8 Produção → 6 Gestão → 7 Avaliação → 3 App nativo → 9 Fidelidade.
 
 ## Notas de produção (Fase 8)
 

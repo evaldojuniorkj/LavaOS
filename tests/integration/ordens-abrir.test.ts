@@ -181,7 +181,7 @@ describe('abrirOsAction', () => {
       await travado.promise;
       try {
         const t0 = Date.now();
-        expect(await abrirOsAction({ veiculoId: s.veiculo.id, servicoIds: [s.lavagem.id] })).toEqual({ ok: false, code: 'CONFLITO_OS', message: 'Essa OS está sendo alterada. Tente novamente.' });
+        expect(await abrirOsAction({ veiculoId: s.veiculo.id, servicoIds: [s.lavagem.id] })).toEqual({ ok: false, code: 'CONFLITO_OS', message: 'Muitas aberturas ao mesmo tempo. Tente novamente.' });
         expect(Date.now() - t0).toBeGreaterThanOrEqual(4500);
         expect(Date.now() - t0).toBeLessThan(9000);
       } finally {

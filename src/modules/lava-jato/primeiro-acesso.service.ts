@@ -4,10 +4,11 @@ import { z } from 'zod';
 import { hashSecret } from '@/lib/auth/credentials';
 import { AcessoNegadoError } from '@/lib/auth/permissions';
 import { getDatabase } from '@/lib/db/client';
-import { lavaJatos, portes, servicos } from '@/lib/db/schema';
+import { categoriasDespesa, lavaJatos, portes, servicos } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { getServerEnv } from '@/lib/env';
 import { limitar } from '@/lib/rate-limit';
+import { CATEGORIAS_PADRAO } from '@/modules/despesas/categorias-padrao';
 import type { ActionResult } from '@/modules/equipe/equipe.actions';
 import { EquipeError, emTransacao, inserirMembro } from '@/modules/equipe/equipe.service';
 import { codigoConfere } from './primeiro-acesso.rules';
@@ -31,7 +32,7 @@ export async function sistemaConfigurado(db: Database = getDatabase()): Promise<
   return (await db.select({ id: lavaJatos.id }).from(lavaJatos).limit(1)).length > 0;
 }
 
-/** Cria tenant, dono, portes e serviços de exemplo numa transação. Recusa (AcessoNegadoError) se já existe qualquer lava jato. */
+/** Cria tenant, dono, portes, serviços de exemplo e categorias de despesa numa transação. Recusa (AcessoNegadoError) se já existe qualquer lava jato. */
 export async function criarPrimeiroLavaJato(i: PrimeiroAcessoInput, db: Database = getDatabase()): Promise<{ tenantId: string }> {
   const segredo = await hashSecret(i.donoSenha); // fora da transação: não segura a trava durante o scrypt
   return emTransacao(db, async (tx) => {
@@ -45,6 +46,7 @@ export async function criarPrimeiroLavaJato(i: PrimeiroAcessoInput, db: Database
     await inserirMembro(tx, tenantId, { perfil: 'dono', nomeExibicao: i.donoNome, email: i.donoEmail, senha: i.donoSenha }, segredo);
     await tx.insert(portes).values(PORTES.map((nome, n) => ({ tenantId, nome, ordem: n + 1 })));
     await tx.insert(servicos).values(EXEMPLOS.map((s) => ({ tenantId, ...s, ativo: false, comissaoTipo: 'fixo' as const, comissaoValor: 0 })));
+    await tx.insert(categoriasDespesa).values(CATEGORIAS_PADRAO.map((c) => ({ tenantId, ...c })));
     return { tenantId };
   });
 }

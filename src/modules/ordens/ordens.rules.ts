@@ -2,7 +2,7 @@ import { can } from '@/lib/auth/permissions';
 import type { Perfil, Permissao } from '@/lib/auth/types';
 
 /** Erros após os quais a UI deve recarregar a fila (a OS mudou sob os pés do usuário). */
-export const ERROS_RECARREGAR_FILA = ['CONFLITO_OS', 'NAO_E_RESPONSAVEL', 'OS_ENCERRADA'] as const;
+export const ERROS_RECARREGAR_FILA = ['CONFLITO_OS', 'NAO_E_RESPONSAVEL', 'OS_ENCERRADA', 'NAO_QUITADA'] as const; // NAO_QUITADA: tela velha mostrava Entregar sem a OS estar paga
 
 export type StatusOs = 'aguardando' | 'em_lavagem' | 'pronto' | 'entregue' | 'cancelada';
 
@@ -17,7 +17,7 @@ export function calcularTotais(i: { valoresItens: number[]; descontoCentavos: nu
 type Erro = 'transicao_invalida' | 'sem_permissao' | 'sem_responsavel' | 'nao_e_responsavel' | 'motivo_obrigatorio';
 type Regra = { permissao: Permissao; limpaResponsavel?: boolean; exigeResponsavel?: boolean; soResponsavel?: boolean; motivo?: boolean };
 
-// Tabela de transições da Fase 1 (spec §5.2). Nada sai de entregue/cancelada.
+// Tabela de transições (spec §5.2). Nada sai de cancelada; entregue só volta para pronto (Reabrir, Fase 4).
 const TRANSICOES: Partial<Record<StatusOs, Partial<Record<StatusOs, Regra>>>> = {
   aguardando: {
     em_lavagem: { permissao: 'os:assumir' }, // ou os:atribuir quando o balcão designa o responsável
@@ -32,6 +32,9 @@ const TRANSICOES: Partial<Record<StatusOs, Partial<Record<StatusOs, Regra>>>> = 
     em_lavagem: { permissao: 'os:corrigir' },
     entregue: { permissao: 'os:entregar', exigeResponsavel: true },
     cancelada: { permissao: 'os:cancelar', motivo: true },
+  },
+  entregue: {
+    pronto: { permissao: 'os:reabrir', motivo: true },
   },
 };
 

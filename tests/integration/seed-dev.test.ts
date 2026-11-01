@@ -3,7 +3,7 @@ import { promisify } from 'node:util';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { getDatabase } from '@/lib/db/client';
-import { account, lavaJatos, membros, user } from '@/lib/db/schema';
+import { account, categoriasDespesa, lavaJatos, membros, user } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import '../helpers/auth'; // env de teste para o auth do login HTTP
 import { testUrls, withTestDatabase } from '../helpers/db';
@@ -42,6 +42,7 @@ describe('pnpm db:seed:dev', () => {
       const [t] = await db.select().from(lavaJatos).where(eq(lavaJatos.slug, SLUG));
       const [m] = await db.select().from(membros).where(eq(membros.tenantId, t.id));
       expect(m).toMatchObject({ perfil: 'dono', ativo: true });
+      expect(await db.select().from(categoriasDespesa).where(eq(categoriasDespesa.tenantId, t.id))).toHaveLength(6);
       const [conta] = await db.select().from(account).where(eq(account.userId, m.userId));
       expect(conta).toMatchObject({ providerId: 'credential', accountId: m.userId });
       expect(conta.password).not.toContain(senha);

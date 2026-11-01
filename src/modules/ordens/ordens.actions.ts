@@ -6,7 +6,7 @@ import { requirePermission } from '@/lib/auth/context';
 import { AcessoNegadoError } from '@/lib/auth/permissions';
 import type { Permissao, TenantContext } from '@/lib/auth/types';
 import type { ActionResult } from '@/modules/catalogo/catalogo.actions';
-import { listarFila, listarLavadoresParaDirecionar, obterOs } from './ordens.repo';
+import { listarEntreguesHoje, listarFila, listarLavadoresParaDirecionar, obterOs } from './ordens.repo';
 import { abrirOsSchema, obterOsSchema, ajustarValorSchema, atribuirResponsavelSchema, editarItensSchema, transitarOsSchema } from './ordens.schemas';
 import { abrirOs, ajustarValor, atribuirResponsavel, ConflitoOsError, editarItens, OrdensError, transitarOs } from './ordens.service';
 import type { OsView } from './ordens.views';
@@ -56,6 +56,10 @@ export async function listarLavadoresAction(): Promise<ActionResult<Awaited<Retu
 
 export async function listarFilaAction(): Promise<ActionResult<OsView[]>> {
   return executar('fila:ver', z.undefined(), undefined, (ctx) => listarFila(ctx));
+}
+
+export async function listarEntreguesHojeAction(): Promise<ActionResult<OsView[]>> {
+  return executar('fila:ver', z.undefined(), undefined, (ctx) => listarEntreguesHoje(ctx));
 }
 
 export async function obterOsAction(input: unknown): Promise<ActionResult<OsView | null>> {

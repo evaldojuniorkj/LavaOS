@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { expect } from 'vitest';
-import { membros, ordensServico, portes, precos, servicos, user, veiculos, type OsStatus } from '@/lib/db/schema';
+import { caixas, membros, ordensServico, pagamentos, portes, precos, servicos, user, veiculos, type OsStatus } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
+import { dataDoCaixa } from '@/modules/caixa/caixa.rules';
 import type { AuthFixtures } from './auth';
 import { createHttp } from './http';
 
@@ -69,4 +70,13 @@ export async function esperarNoLock(db: Database, n: number) {
     if (i > 200) throw new Error('chamadas não chegaram ao lock');
     await new Promise((r) => setTimeout(r, 25));
   }
+}
+
+/** Pagamento ativo direto no banco, no caixa de hoje (aberto se faltar); o fluxo de receber é testado em caixa.test. */
+export async function pagar(db: Database, i: { tenantId: string; osId: string; recebidoPor: string; valorCentavos?: number }) {
+  const data = dataDoCaixa(new Date());
+  const [existente] = await db.select().from(caixas).where(and(eq(caixas.tenantId, i.tenantId), eq(caixas.data, data)));
+  const caixa = existente ?? (await db.insert(caixas).values({ tenantId: i.tenantId, data, trocoInicialCentavos: 0, abertoPor: i.recebidoPor }).returning())[0];
+  const [p] = await db.insert(pagamentos).values({ tenantId: i.tenantId, osId: i.osId, caixaId: caixa.id, forma: 'pix', valorCentavos: i.valorCentavos ?? 5000, recebidoPor: i.recebidoPor }).returning();
+  return p;
 }

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { getServerEnv } from '@/lib/env';
 import { hub, TIPOS_EVENTO } from './hub';
 
-const eventoSchema = z.object({ tenantId: z.string(), osId: z.string(), tipo: z.enum(TIPOS_EVENTO) });
+const eventoSchema = z.object({ tenantId: z.string(), osId: z.string().optional(), tipo: z.enum(TIPOS_EVENTO) });
 
 type Estado = { parado: boolean; client?: Client; timer?: NodeJS.Timeout };
 const g = globalThis as { __lavaosListener?: Estado };

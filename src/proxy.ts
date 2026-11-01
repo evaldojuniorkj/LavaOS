@@ -23,4 +23,4 @@ export function proxy(request: NextRequest) {
 }
 
 // /primeiro-acesso fica de fora de propósito: é público (ver route-policy.ts)
-export const config = { matcher: ['/inicio', '/painel', '/fila', '/lavador/:path*', '/nova-os', '/clientes', '/configuracoes/:path*', '/acompanhar/:path*'] };
+export const config = { matcher: ['/inicio', '/painel', '/fila', '/caixa', '/despesas', '/lavador/:path*', '/nova-os', '/clientes', '/configuracoes/:path*', '/acompanhar/:path*'] };

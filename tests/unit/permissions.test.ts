@@ -71,12 +71,20 @@ describe('assertPermission', () => {
   });
 
   it('recusa operação não implantada mesmo para o dono', () => {
-    expect(() => assertPermission(ctx('dono'), 'caixa:operar')).toThrow('acesso negado');
+    expect(() => assertPermission(ctx('dono'), 'relatorios:ver')).toThrow('acesso negado');
   });
 
-  it('assertPermission libera os:abrir ao lavador e recusa os:reabrir a todos', () => {
+  it('assertPermission libera os:abrir ao lavador e recusa catálogo à recepção', () => {
     expect(() => assertPermission(ctx('lavador'), 'os:abrir')).not.toThrow();
     expect(() => assertPermission(ctx('recepcao'), 'catalogo:gerenciar')).toThrow('acesso negado');
-    for (const perfil of PERFIS_ORDEM) expect(() => assertPermission(ctx(perfil), 'os:reabrir')).toThrow('acesso negado');
+  });
+
+  it('dinheiro implantado: caixa:operar na frente; estorno, reabertura e despesas só na gestão', () => {
+    expect(() => assertPermission(ctx('recepcao'), 'caixa:operar')).not.toThrow();
+    expect(() => assertPermission(ctx('lavador'), 'caixa:operar')).toThrow('acesso negado');
+    for (const p of ['caixa:reabrir', 'caixa:estornar', 'despesas:gerenciar', 'os:reabrir'] as const) {
+      for (const perfil of ['dono', 'gerente'] as const) expect(() => assertPermission(ctx(perfil), p)).not.toThrow();
+      for (const perfil of ['recepcao', 'lavador'] as const) expect(() => assertPermission(ctx(perfil), p)).toThrow('acesso negado');
+    }
   });
 });

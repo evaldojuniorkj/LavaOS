@@ -90,9 +90,9 @@ describe('decidirTransicao', () => {
   it('lavador não cancela', () => {
     expect(t('aguardando', 'cancelada', 'lavador', { motivo: 'x' })).toEqual({ ok: false, erro: 'sem_permissao' });
   });
-  it('varre todos os pares de status: só os da tabela da Fase 1 passam', () => {
+  it('varre todos os pares de status: só os da tabela passam', () => {
     const todos: StatusOs[] = ['aguardando', 'em_lavagem', 'pronto', 'entregue', 'cancelada'];
-    const permitidos = new Set(['aguardando>em_lavagem', 'em_lavagem>pronto', 'pronto>em_lavagem', 'em_lavagem>aguardando', 'pronto>entregue', 'aguardando>cancelada', 'em_lavagem>cancelada', 'pronto>cancelada']);
+    const permitidos = new Set(['aguardando>em_lavagem', 'em_lavagem>pronto', 'pronto>em_lavagem', 'em_lavagem>aguardando', 'pronto>entregue', 'aguardando>cancelada', 'em_lavagem>cancelada', 'pronto>cancelada', 'entregue>pronto']);
     for (const de of todos)
       for (const para of todos) {
         const r = t(de, para, 'dono', { ehResponsavel: true, motivo: 'm' });
@@ -104,8 +104,11 @@ describe('decidirTransicao', () => {
     expect(t('constructor' as StatusOs, 'pronto', 'dono')).toEqual({ ok: false, erro: 'transicao_invalida' });
     expect(t('aguardando', 'toString' as StatusOs, 'dono')).toEqual({ ok: false, erro: 'transicao_invalida' });
   });
-  it('entregue→pronto é transicao_invalida na Fase 1', () => {
-    expect(t('entregue', 'pronto', 'dono')).toEqual({ ok: false, erro: 'transicao_invalida' });
+  it('Reabrir entregue→pronto: dono e gerente com motivo (os:reabrir); recepção e lavador não', () => {
+    for (const perfil of ['dono', 'gerente'] as const)
+      expect(t('entregue', 'pronto', perfil, { motivo: 'cobrou errado' })).toEqual({ ok: true, permissao: 'os:reabrir', limpaResponsavel: false });
+    expect(t('entregue', 'pronto', 'dono')).toEqual({ ok: false, erro: 'motivo_obrigatorio' });
+    for (const perfil of ['recepcao', 'lavador'] as const) expect(t('entregue', 'pronto', perfil, { motivo: 'x' })).toEqual({ ok: false, erro: 'sem_permissao' });
   });
   it('nada sai de cancelada', () => {
     expect(t('cancelada', 'aguardando', 'dono')).toEqual({ ok: false, erro: 'transicao_invalida' });

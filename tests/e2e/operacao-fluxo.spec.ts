@@ -2,6 +2,7 @@ import { randomInt } from 'node:crypto';
 import { devices, expect, test, type Browser, type Page } from '@playwright/test';
 import pg from 'pg';
 import { testUrls } from '../helpers/test-db';
+import { quitarOs } from './dinheiro';
 import { entrarLavador, entrarStaff, pin } from './login';
 
 // Fluxo ponta a ponta da Fase 1 (projetos desktop e mobile = a recepção). Veículos exclusivos deste spec, do global-setup:
@@ -92,7 +93,8 @@ test('recepção abre OS → lavador pega no celular → fila atualiza → pront
   expect(aviso.searchParams.get('text')).toContain(GOL);
   expect(aviso.searchParams.get('text')).toContain('R$ 70,00');
 
-  await pronto.getByRole('button', { name: 'Entregar' }).click();
+  await quitarOs(GOL);
+  await pronto.getByRole('button', { name: 'Entregar', exact: true }).click();
   await expect(cartao(page, GOL)).toHaveCount(0);
   await expect(cartao(lav, GOL)).toHaveCount(0); // entregue sai também do celular
   await expect(pub.getByRole('heading', { level: 1 })).toHaveText('Entregue');
