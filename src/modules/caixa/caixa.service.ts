@@ -28,7 +28,7 @@ const ddmm = (data: string) => `${data.slice(8, 10)}/${data.slice(5, 7)}`;
 const outroDia = (data: string) => new CaixaError('CAIXA_DE_OUTRO_DIA', `Feche o caixa de ${ddmm(data)} antes.`);
 const naoEncontrado = (o: 'Caixa' | 'OS' | 'Pagamento') => new CaixaError('NAO_ENCONTRADO', `${o} não encontrad${o === 'OS' ? 'a' : 'o'}.`);
 
-export async function emTransacao<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> {
+export async function emTransacao<T>(db: Database, fn: (tx: Tx) => Promise<T>, ocupado = 'O caixa está sendo alterado. Tente novamente.'): Promise<T> {
   try {
     return await db.transaction(async (tx) => {
       await tx.execute(sql`set local lock_timeout = '5s'`);
@@ -36,7 +36,7 @@ export async function emTransacao<T>(db: Database, fn: (tx: Tx) => Promise<T>): 
     });
   } catch (err) {
     const pg = ((err as { cause?: unknown }).cause ?? err) as { code?: string }; // o Drizzle embrulha o erro do pg em `cause`
-    if (pg.code === '55P03') throw new CaixaError('OCUPADO', 'O caixa está sendo alterado. Tente novamente.');
+    if (pg.code === '55P03') throw new CaixaError('OCUPADO', ocupado);
     // só a inserção/reabertura de caixa bate em unique: outra pessoa abriu um caixa entre a checagem e a gravação
     if (pg.code === '23505') throw new CaixaError('CAIXA_ABERTO', 'O caixa acabou de ser aberto. Recarregue a tela.');
     throw err;

@@ -68,7 +68,7 @@
 
 **Produces:** `lancarVale(ctx, { membroId, valorCentavos, doCaixa? })` (usa `lancarDespesa` na categoria "Vales" dentro da mesma transação — exporte uma variante que recebe `tx` se preciso); `cancelarVale(ctx, { valeId, motivo })` (só pendente; cancela a despesa); `previaAcerto(ctx, { membroId, ate })`; `pagarAcerto(ctx, { membroId, ate, doCaixa? })`; repo `pendentesPorMembro(ctx, ate)` (todos os membros com comissão, vale ou saldo devedor, inclusive desativados), `acertosDoMembro(ctx, membroId)`, `detalheAcerto(ctx, acertoId)` (OS, itens, comissão; vales). Actions com `comissoes:gerenciar`.
 
-- [ ] Testes que falham: os cenários de vale maior/igual/menor da Review Focus; saldo devedor carregado no acerto seguinte; vale com `doCaixa` reduz o esperado do caixa; cancelar vale pendente cancela a despesa, vale em acerto não cancela; despesa "Comissões" só quando `pago > 0`; soma de despesas = comissões geradas; acerto concorrente do mesmo membro; comissão de OS entregue depois de `ate` fica para o próximo; outro tenant não aparece; recepção negada → implementar → commit `feat(comissoes): vales e acerto com saldo devedor`.
+- [x] Testes que falham: os cenários de vale maior/igual/menor da Review Focus; saldo devedor carregado no acerto seguinte; vale com `doCaixa` reduz o esperado do caixa; cancelar vale pendente cancela a despesa, vale em acerto não cancela; despesa "Comissões" só quando `pago > 0`; soma de despesas = comissões geradas; acerto concorrente do mesmo membro; comissão de OS entregue depois de `ate` fica para o próximo; outro tenant não aparece; recepção negada → implementar → commit `feat(comissoes): vales e acerto com saldo devedor`.
 
 ### Task 5: Tela `/comissoes`
 

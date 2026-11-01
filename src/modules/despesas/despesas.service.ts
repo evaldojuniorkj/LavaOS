@@ -37,35 +37,38 @@ async function travarDespesa(tx: Tx, ctx: TenantContext, id: string) {
 
 /** `doCaixa`: saiu dinheiro da gaveta hoje; grava no caixa aberto de hoje e entra nas saídas do fechamento. */
 export async function lancarDespesa(ctx: TenantContext, i: z.output<typeof lancarDespesaSchema>, db: Database = getDatabase(), agora = new Date()): Promise<Despesa> {
+  return emTransacao(db, (tx) => lancarDespesaTx(tx, ctx, i, agora));
+}
+
+/** Variante dentro da transação de quem chama (vale e acerto gravam a despesa junto). */
+export async function lancarDespesaTx(tx: Tx, ctx: TenantContext, i: z.output<typeof lancarDespesaSchema>, agora = new Date()): Promise<Despesa> {
   assertPermission(ctx, 'despesas:gerenciar');
   const hoje = dataDoCaixa(agora);
   const pagoEm = i.doCaixa ? (i.pagoEm ?? hoje) : i.pagoEm;
   if (!pagoEm && !i.vencimento) throw erroCampo('vencimento', 'Informe a data do pagamento ou o vencimento.');
   if (pagoEm && pagoEm > hoje) throw erroCampo('pagoEm', 'A data do pagamento não pode ser no futuro.');
   if (i.doCaixa && pagoEm !== hoje) throw erroCampo('pagoEm', 'Dinheiro do caixa só com pagamento hoje.');
-  return emTransacao(db, async (tx) => {
-    const [cat] = await tx
-      .select({ id: categoriasDespesa.id })
-      .from(categoriasDespesa)
-      .where(and(eq(categoriasDespesa.tenantId, ctx.tenantId), eq(categoriasDespesa.id, i.categoriaId), eq(categoriasDespesa.ativo, true)));
-    if (!cat) throw erroCampo('categoriaId', 'Categoria não encontrada.');
-    const caixa = i.doCaixa ? await caixaAbertoDeHoje(tx, ctx, agora) : null;
-    const [d] = await tx
-      .insert(despesas)
-      .values({
-        tenantId: ctx.tenantId,
-        categoriaId: cat.id,
-        descricao: i.descricao,
-        valorCentavos: i.valorCentavos,
-        vencimento: i.vencimento,
-        pagoEm: !pagoEm ? null : pagoEm === hoje ? agora : meioDia(pagoEm),
-        caixaId: caixa?.id,
-        lancadaPor: ctx.memberId,
-      })
-      .returning(camposDespesa);
-    if (caixa) await publicar(tx, { tenantId: ctx.tenantId, tipo: 'caixa' });
-    return d;
-  });
+  const [cat] = await tx
+    .select({ id: categoriasDespesa.id })
+    .from(categoriasDespesa)
+    .where(and(eq(categoriasDespesa.tenantId, ctx.tenantId), eq(categoriasDespesa.id, i.categoriaId), eq(categoriasDespesa.ativo, true)));
+  if (!cat) throw erroCampo('categoriaId', 'Categoria não encontrada.');
+  const caixa = i.doCaixa ? await caixaAbertoDeHoje(tx, ctx, agora) : null;
+  const [d] = await tx
+    .insert(despesas)
+    .values({
+      tenantId: ctx.tenantId,
+      categoriaId: cat.id,
+      descricao: i.descricao,
+      valorCentavos: i.valorCentavos,
+      vencimento: i.vencimento,
+      pagoEm: !pagoEm ? null : pagoEm === hoje ? agora : meioDia(pagoEm),
+      caixaId: caixa?.id,
+      lancadaPor: ctx.memberId,
+    })
+    .returning(camposDespesa);
+  if (caixa) await publicar(tx, { tenantId: ctx.tenantId, tipo: 'caixa' });
+  return d;
 }
 
 export async function marcarComoPaga(ctx: TenantContext, i: z.output<typeof marcarComoPagaSchema>, db: Database = getDatabase(), agora = new Date()): Promise<Despesa> {
@@ -87,21 +90,23 @@ export async function marcarComoPaga(ctx: TenantContext, i: z.output<typeof marc
 
 /** Saída do caixa só cancela com o caixa ainda aberto: a trava FOR SHARE faz um fechamento concorrente ver o cancelamento. */
 export async function cancelarDespesa(ctx: TenantContext, i: z.output<typeof cancelarDespesaSchema>, db: Database = getDatabase(), agora = new Date()): Promise<Despesa> {
+  return emTransacao(db, (tx) => cancelarDespesaTx(tx, ctx, i, agora));
+}
+
+export async function cancelarDespesaTx(tx: Tx, ctx: TenantContext, i: z.output<typeof cancelarDespesaSchema>, agora = new Date()): Promise<Despesa> {
   assertPermission(ctx, 'despesas:gerenciar');
-  return emTransacao(db, async (tx) => {
-    const d = await travarDespesa(tx, ctx, i.despesaId);
-    if (d.canceladaEm) throw new DespesasError('JA_CANCELADA', 'Essa despesa já foi cancelada.');
-    if (d.caixaId && (await caixaAbertoDeHoje(tx, ctx, agora)).id !== d.caixaId) {
-      throw new DespesasError('CAIXA_FECHADO', 'Só dá para cancelar saída do caixa aberto de hoje.');
-    }
-    const [c] = await tx
-      .update(despesas)
-      .set({ canceladaEm: sql`now()`, canceladaPor: ctx.memberId, motivoCancelamento: i.motivo })
-      .where(and(eq(despesas.tenantId, ctx.tenantId), eq(despesas.id, d.id)))
-      .returning(camposDespesa);
-    if (d.caixaId) await publicar(tx, { tenantId: ctx.tenantId, tipo: 'caixa' });
-    return c;
-  });
+  const d = await travarDespesa(tx, ctx, i.despesaId);
+  if (d.canceladaEm) throw new DespesasError('JA_CANCELADA', 'Essa despesa já foi cancelada.');
+  if (d.caixaId && (await caixaAbertoDeHoje(tx, ctx, agora)).id !== d.caixaId) {
+    throw new DespesasError('CAIXA_FECHADO', 'Só dá para cancelar saída do caixa aberto de hoje.');
+  }
+  const [c] = await tx
+    .update(despesas)
+    .set({ canceladaEm: sql`now()`, canceladaPor: ctx.memberId, motivoCancelamento: i.motivo })
+    .where(and(eq(despesas.tenantId, ctx.tenantId), eq(despesas.id, d.id)))
+    .returning(camposDespesa);
+  if (d.caixaId) await publicar(tx, { tenantId: ctx.tenantId, tipo: 'caixa' });
+  return c;
 }
 
 /** Categoria de sistema ("Comissões", usada pela Fase 5) não é renomeada nem desativada. */
