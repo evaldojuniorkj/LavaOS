@@ -52,6 +52,7 @@ const IMPLANTADAS: ReadonlySet<Permissao> = new Set<Permissao>([
   'caixa:reabrir',
   'caixa:estornar',
   'despesas:gerenciar',
+  'comissoes:gerenciar',
   'catalogo:gerenciar',
   'painel:ver',
 ]);

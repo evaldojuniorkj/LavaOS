@@ -70,6 +70,7 @@ export const osItens = pgTable(
     updatedAt: ts('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   (t) => [
+    unique('os_itens_tenant_id_uq').on(t.tenantId, t.id),
     index('os_itens_tenant_os_idx').on(t.tenantId, t.osId),
     index('os_itens_tenant_servico_idx').on(t.tenantId, t.servicoId),
     index('os_itens_tenant_porte_idx').on(t.tenantId, t.porteId),

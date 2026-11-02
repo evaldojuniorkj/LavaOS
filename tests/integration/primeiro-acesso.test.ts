@@ -80,7 +80,7 @@ describe('primeiro acesso', () => {
       for (const s of exemplos) expect(s).toMatchObject({ tenantId, ativo: false, comissaoTipo: 'fixo', comissaoValor: 0 });
       expect(await db.select().from(precos)).toEqual([]);
       expect(await db.select({ nome: categoriasDespesa.nome, sistema: categoriasDespesa.sistema, tenantId: categoriasDespesa.tenantId }).from(categoriasDespesa)).toEqual(
-        expect.arrayContaining(['Produtos', 'Água e luz', 'Aluguel', 'Vales', 'Outros'].map((nome) => ({ nome, sistema: false, tenantId })).concat({ nome: 'Comissões', sistema: true, tenantId })),
+        expect.arrayContaining(['Produtos', 'Água e luz', 'Aluguel', 'Outros'].map((nome) => ({ nome, sistema: false, tenantId })).concat(['Vales', 'Comissões'].map((nome) => ({ nome, sistema: true, tenantId })))),
       );
       expect(await db.select().from(categoriasDespesa)).toHaveLength(6);
 

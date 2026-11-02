@@ -71,7 +71,7 @@ describe('schema da Fase 4', () => {
       expect(await db.insert(despesas).values({ ...base, pagoEm: new Date(), caixaId: cx.id }).returning()).toHaveLength(1);
     }));
 
-  it('fixture cria as 6 categorias padrão por tenant, Comissões de sistema; nome único no tenant', () =>
+  it('fixture cria as 6 categorias padrão por tenant, Vales e Comissões de sistema; nome único no tenant', () =>
     withTestDatabase(async (db) => {
       const f = await createFoundationFixtures(db);
       const cats = await db.select().from(categoriasDespesa);
@@ -82,7 +82,7 @@ describe('schema da Fase 4', () => {
         ['Comissões', true, true],
         ['Outros', false, true],
         ['Produtos', false, true],
-        ['Vales', false, true],
+        ['Vales', true, true],
         ['Água e luz', false, true],
       ]);
       expect(await pgCode(db.insert(categoriasDespesa).values({ tenantId: f.a.tenantId, nome: 'Vales' }))).toBe('23505');

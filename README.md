@@ -1,7 +1,7 @@
 # LavaOS
 Projeto de um SAAS para Lava jato.
 
-Estado atual: **Fase 4 — Dinheiro** concluída sobre as Fases 0 (Fundação), 1 (Operação) e 2 (Painel). O pátio funciona (catálogo, clientes e veículos, ordens de serviço, fila em tempo real, link público, WhatsApp, app do lavador em PWA, assistente de primeiro acesso) e o dinheiro também: caixa, recebimento, entrega só quitada e despesas. Comissões chegam na Fase 5 (veja [Limites](#limites)).
+Estado atual: **Fase 5 — Comissões** concluída sobre as Fases 0 (Fundação), 1 (Operação), 2 (Painel) e 4 (Dinheiro). O pátio funciona (catálogo, clientes e veículos, ordens de serviço, fila em tempo real, link público, WhatsApp, app do lavador em PWA, assistente de primeiro acesso) e o dinheiro também: caixa, recebimento, entrega só quitada e despesas; e o acerto da equipe: comissões, vales e acerto com saldo devedor (veja [Limites](#limites)).
 
 ## Ambiente
 
@@ -30,6 +30,7 @@ pnpm dev                       # http://localhost:3000
 | `http://localhost:3000/painel` | Painel ao vivo (dono, gerente e recepção), com o recebido do dia |
 | `http://localhost:3000/caixa` | Caixa do dia: abrir com troco, recebido por forma, pagamentos e estorno, saídas, fechar com contagem e reabrir (dono, gerente e recepção) |
 | `http://localhost:3000/despesas` | Despesas, contas a pagar e categorias (dono e gerente) |
+| `http://localhost:3000/comissoes` | Comissões, vales e acertos por membro (dono e gerente) |
 | `http://localhost:3000/nova-os` | Nova OS pela placa (veículo existente ou cadastro rápido), serviços e responsável opcional |
 | `http://localhost:3000/clientes` | Clientes e veículos |
 | `http://localhost:3000/configuracoes/catalogo` | Portes, serviços, adicionais, preços por porte e comissão por serviço |
@@ -50,7 +51,7 @@ pnpm dev                       # http://localhost:3000
 
 ## Fase 1 — Operação
 
-- **Catálogo** (`/configuracoes/catalogo`, dono e gerente): portes, serviços principais e adicionais, preço por porte em centavos e comissão obrigatória por serviço (percentual ou valor fixo; o cálculo da comissão é da Fase 5).
+- **Catálogo** (`/configuracoes/catalogo`, dono e gerente): portes, serviços principais e adicionais, preço por porte em centavos e comissão obrigatória por serviço (percentual ou valor fixo; calculada na entrega desde a Fase 5).
 - **Clientes e veículos** (`/clientes`): placa normalizada (`ABC-1D23` → `ABC1D23`, padrões antigo e Mercosul), telefone em E.164.
 - **Ordem de serviço** (`/nova-os`): busca pela placa ou cadastro rápido; ao menos um serviço principal (adicional só junto de um principal); o total vem do servidor a partir dos preços, que ficam copiados na OS. Um único responsável, opcional na abertura, com sugestão de lavador livre (só orientação). Status `aguardando → em_lavagem → pronto → entregue`, ou `cancelada` com motivo; cancelada é definitiva e somente leitura; entregue também, salvo a reabertura da Fase 4. Enquanto a OS está ativa, dono, gerente e recepção corrigem os itens; desconto e acréscimo são só de dono e gerente.
 - **Fila em tempo real** (`/fila`): cada mudança gera `pg_notify` na mesma transação; o servidor repassa por SSE só ids e tipo do evento e cada tela recarrega a visão do seu perfil. Duas pessoas agindo na mesma OS: uma vence, a outra vê a mensagem (ex.: "Essa OS já foi pega por …") e a tela recarrega.
@@ -81,6 +82,16 @@ Valores sempre em centavos inteiros. Tabelas `caixas`, `pagamentos`, `categorias
 - **Painel:** cartão "Recebido hoje" com a quebra por forma (sem estornados) e o estado do caixa (aberto, fechado ou nenhum caixa aberto hoje).
 - **Permissões novas:** `caixa:operar` (dono, gerente, recepção); `caixa:reabrir`, `caixa:estornar`, `despesas:gerenciar` e `os:reabrir` (dono, gerente). O lavador continua sem nenhum valor: `pagoCentavos` só existe na visão de gestão e os eventos SSE levam só ids e tipo.
 - **Menu:** com mais de 5 itens, as abas do celular mostram os 4 primeiros e "Mais".
+
+## Fase 5 — Comissões
+
+Tabelas `comissoes`, `vales` e `acertos_comissao` (migração `0006_comissoes.sql`; `0007_vales_sistema.sql` torna "Vales" categoria de sistema). `vales` e `acertos_comissao` não têm `DELETE` para `lavaos_app`; `comissoes` é dado derivado e sai na reabertura.
+
+- **Comissão na entrega:** na transição para `entregue`, na mesma transação, uma comissão por item da OS para o responsável. Base do item = valor com desconto e acréscimo da OS rateados proporcionalmente (sobra de centavos no item de maior valor; Σ bases = total da OS); percentual em pontos-base com arredondamento meio-para-cima, fixo como contratado. Entregar de novo não duplica.
+- **Reabertura:** apaga as comissões pendentes da OS; se alguma já entrou num acerto, é recusada com "Comissão já paga no acerto de DD/MM.".
+- **Vale** (adiantamento a um membro): grava o vale e uma despesa paga da categoria "Vales" (de sistema; a despesa de um vale ou de um acerto não se cancela em `/despesas`); "Pago com dinheiro do caixa (hoje)" sai da gaveta. Cancelar o vale pendente cancela a despesa.
+- **Acerto** (por membro, até uma data): comissões pendentes − (vales pendentes + saldo devedor do acerto anterior). Se sobra, paga a diferença como despesa "Comissões" (opcionalmente do caixa); se falta, paga zero e o membro **fica devendo** para o próximo acerto. O vale nunca é lançado de novo no acerto. Prévia antes de confirmar; histórico e folha de impressão (`/comissoes/acerto/[id]`) com as comissões por OS e os vales descontados.
+- **Tela** `/comissoes` e permissão `comissoes:gerenciar` (dono, gerente); recepção vê "Acesso negado". O lavador continua sem nenhum valor nem comissão na visão dele.
 
 ### Rodar e popular
 
@@ -125,7 +136,7 @@ CI: `.github/workflows/quality.yml` (Node de `.node-version`, pnpm de `packageMa
 
 ## Limites
 
-**Não existem ainda**: geração de comissões e vales ligados ao lavador (Fase 5; a comissão só é cadastrada e copiada na OS, e o vale é uma despesa da categoria "Vales"), produção/deploy (Fase 8), agenda e relatórios por período (Fase 6), avaliação (Fase 7), app nativo (Fase 3) e fidelidade (Fase 9). Também fora: fiado/pós-pago, dividir uma OS entre lavadores e WhatsApp automático (só links `wa.me`).
+**Não existem ainda**: produção/deploy (Fase 8), agenda e relatórios por período (Fase 6), avaliação (Fase 7), app nativo (Fase 3) e fidelidade (Fase 9). Também fora: fiado/pós-pago, dividir uma OS entre lavadores e WhatsApp automático (só links `wa.me`).
 
 Ordem de execução (fases numeradas, [roteiro](docs/superpowers/plans/2026-10-31-roteiro.md)): 0 Fundação → 1 Operação → 2 Painel → 4 Dinheiro → 5 Comissões → 8 Produção → 6 Gestão → 7 Avaliação → 3 App nativo → 9 Fidelidade.
 
