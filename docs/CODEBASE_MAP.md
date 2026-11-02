@@ -1,6 +1,6 @@
 # Mapa do código — LavaOS
 
-Gerado a partir da árvore da branch `fase-1-operacao` em 2026-10-30, ao fim da Fase 1; atualizado na branch `fase-4-dinheiro` em 2026-10-31, ao fim da Fase 4 (Dinheiro).
+Gerado a partir da árvore da branch `fase-1-operacao` em 2026-10-30, ao fim da Fase 1; atualizado na branch `fase-4-dinheiro` em 2026-10-31, ao fim da Fase 4 (Dinheiro); atualizado na branch `fase-5-comissoes` em 2026-11-01, ao fim da Fase 5 (Comissões).
 Contagem (`git ls-files`, 2026-10-31): 225 arquivos versionados fora de `docs/superpowers/` (sem contar este mapa); `src/` tem 121 arquivos (7609 linhas), `tests/` tem 68 (8228 linhas).
 
 ## Visão geral
@@ -42,6 +42,8 @@ Padrão de cada módulo: `*.rules.ts` (regras puras) → `*.repo.ts` (consultas 
 | `0003_operacao.sql` | `portes`, `servicos`, `precos`, `clientes`, `veiculos`, `ordens_servico`, `os_itens`, `os_eventos`, `os_contadores` |
 | `0004_amazing_morgan_stark.sql` | Placa opcional em `veiculos` (veículo sem placa, Fase 2) |
 | `0005_financeiro.sql` | `caixas`, `pagamentos`, `categorias_despesa`, `despesas`; categorias padrão para tenants existentes; `REVOKE DELETE` dessas tabelas do `lavaos_app` |
+| `0006_comissoes.sql` | `comissoes`, `vales`, `acertos_comissao` (contas conferidas por `CHECK`); `REVOKE DELETE` de `vales` e `acertos_comissao` do `lavaos_app` |
+| `0007_vales_sistema.sql` | Categoria "Vales" passa a ser de sistema |
 | `meta/` | Journal e snapshots do drizzle-kit |
 
 ### Tabelas (as de domínio da Fase 1 têm `id` uuid, `tenant_id`, `created_at`, `updated_at` e FKs compostas `(tenant_id, id)`; exceção: `os_contadores`, uma linha por tenant com chave `tenant_id`)
@@ -59,6 +61,9 @@ Padrão de cada módulo: `*.rules.ts` (regras puras) → `*.repo.ts` (consultas 
 | `pagamentos` | Pagamento de OS num caixa: forma (dinheiro, Pix, débito, crédito), valor > 0, quem recebeu; estorno com autor, data e motivo (os três juntos ou nenhum) |
 | `categorias_despesa` | Nome único por tenant, ativa, `sistema` ("Comissões") |
 | `despesas` | Categoria, descrição, valor, vencimento e/ou `pago_em`, `caixa_id` quando paga com dinheiro da gaveta, cancelamento com motivo |
+| `comissoes` | Uma por item de OS entregue (`os_item_id` único): membro, base, valor, `acerto_id` (nulo = pendente) |
+| `vales` | Adiantamento: membro, valor, `dado_em`/`dado_por`, `despesa_id` (categoria "Vales"), `acerto_id`, cancelamento com motivo |
+| `acertos_comissao` | Membro, período, comissões, vales, saldo anterior, pago, saldo devedor, `despesa_id` (só se pago > 0), `pago_em`/`pago_por` |
 
 ## `scripts/`
 
@@ -81,6 +86,7 @@ Padrão de cada módulo: `*.rules.ts` (regras puras) → `*.repo.ts` (consultas 
 | `/painel` | `(interno)/painel/page.tsx` | Dono, gerente e recepção (`painel:ver`); lavador vai a `/lavador` |
 | `/caixa` | `(interno)/caixa/page.tsx` | Dono, gerente e recepção (`caixa:operar`) |
 | `/despesas` | `(interno)/despesas/page.tsx` | Dono e gerente (`despesas:gerenciar`); recepção vê "Acesso negado" |
+| `/comissoes`, `/comissoes/acerto/[id]` | `(interno)/comissoes/…` | Dono e gerente (`comissoes:gerenciar`); recepção vê "Acesso negado"; folha de impressão do acerto |
 | `/inicio`, `/fila`, `/nova-os`, `/clientes` | `(interno)/…/page.tsx` | Dono, gerente e recepção (lavador vai a `/lavador`) |
 | `/configuracoes/catalogo`, `/configuracoes/equipe` | `(interno)/configuracoes/…` | Dono e gerente; demais veem "Acesso negado" |
 | `/lavador`, `/lavador/nova` | `(lavador)/lavador/…` | Só lavador (staff vai a `/fila`); layout com barra inferior |
@@ -102,6 +108,7 @@ Padrão de cada módulo: `*.rules.ts` (regras puras) → `*.repo.ts` (consultas 
 | `caixa-view.tsx` | Caixa do dia: abrir com troco, recebido por forma, pagamentos com estorno, saídas, conferir/fechar e reabrir |
 | `receber-dialogo.tsx` | Receber / Receber e entregar: forma, valor (sugere o saldo) e troco em dinheiro |
 | `despesas-view.tsx` | Lançar despesa (paga, a pagar ou com dinheiro do caixa), contas a pagar, despesas do mês e categorias |
+| `comissoes-view.tsx` | Por membro: pendências e a pagar/fica devendo, lançar e cancelar vale, acerto com prévia, histórico e botão de imprimir |
 | `login-form.tsx`, `primeiro-acesso-form.tsx` | Login (dois modos, escolha de lava jato) e assistente |
 | `equipe-form.tsx`, `catalogo-form.tsx`, `clientes-form.tsx` | Telas de cadastro |
 | `nova-os-form.tsx` | Nova OS / Nova lavagem: busca da placa, cadastro rápido, serviços, responsável opcional |
@@ -119,7 +126,7 @@ Padrão de cada módulo: `*.rules.ts` (regras puras) → `*.repo.ts` (consultas 
 | `env.ts` | Validação lazy das variáveis; `TEST_DATABASE_URL` só `lavaos_test` local |
 | `utils.ts` | `cn`, `tempoDesde` e `SEM_CONEXAO` |
 | `rate-limit.ts` | Limitador em memória (página pública, SSE público, assistente) |
-| `db/client.ts`, `db/types.ts`, `db/schema/*` | Pool Postgres, tipo `Database` e schema Drizzle (`auth`, `equipe`, `credenciais`, `catalogo`, `clientes`, `ordens`, `financeiro`) |
+| `db/client.ts`, `db/types.ts`, `db/schema/*` | Pool Postgres, tipo `Database` e schema Drizzle (`auth`, `equipe`, `credenciais`, `catalogo`, `clientes`, `ordens`, `financeiro`, `comissoes`) |
 | `auth/server.ts`, `client.ts`, `route-policy.ts`, `context.ts`, `permissions.ts`, `types.ts`, `ip.ts` | Better Auth, whitelist, `requirePermission`, matriz perfil × permissão (`IMPLANTADAS`), IP só de `X-Real-IP` |
 | `auth/pin.plugin.ts`, `pin.repo.ts`, `pin.rules.ts`, `credentials.ts` | Login por PIN, bloqueio persistente e hash scrypt |
 | `realtime/publicar.ts`, `listener.ts`, `hub.ts` | Tempo real (acima) |
@@ -134,26 +141,28 @@ Padrão de cada módulo: `*.rules.ts` (regras puras) → `*.repo.ts` (consultas 
 | `ordens` | actions, schemas, service, repo, rules, `ordens.views.ts`, `publico.repo.ts` | Abrir OS, transições com `UPDATE … WHERE status = esperado` e conflito PT-BR, entrega só quitada, cancelamento sem pagamento ativo, reabertura `entregue → pronto`, responsável, itens/valor (nunca abaixo do pago), fila, sugestão de lavador livre, visão por perfil (`pagoCentavos` só na gestão) e leitura pública por token |
 | `caixa` | actions, schemas, service, repo, rules | Abrir, receber (trava OS → caixa), estornar, fechar e reabrir o caixa do dia; troco, saldo da OS, esperado por forma e diferença |
 | `despesas` | actions, schemas, service, repo, `categorias-padrao.ts` | Lançar, marcar como paga e cancelar despesa; saída de dinheiro do caixa; contas a pagar (vencidas pela data de São Paulo); categorias |
+| `comissoes` | actions, schemas, service, repo, rules | Rateio e cálculo por item, geração na entrega e remoção na reabertura (recusada após acerto), vales como despesa "Vales", acerto com saldo devedor e despesa "Comissões" (trava o membro) |
 | `painel` | actions, repo, rules | Leitura do painel (contagens, tempo médio, lavadores, atrasadas > 60 min, recebido do dia por forma e estado do caixa; dia em America/Sao_Paulo) |
 | `lava-jato` | `primeiro-acesso.actions/schemas/service/rules` | Assistente de instalação |
 
 ### `proxy.ts`
 
-Redireciona ao login quem não tem cookie (`/inicio`, `/painel`, `/fila`, `/caixa`, `/despesas`, `/lavador/*`, `/nova-os`, `/clientes`, `/configuracoes/*`), guardando o retorno em `next`, e aplica rate limit, `no-referrer` e `noindex` em `/acompanhar/*`.
+Redireciona ao login quem não tem cookie (`/inicio`, `/painel`, `/fila`, `/caixa`, `/despesas`, `/comissoes/*`, `/lavador/*`, `/nova-os`, `/clientes`, `/configuracoes/*`), guardando o retorno em `next`, e aplica rate limit, `no-referrer` e `noindex` em `/acompanhar/*`.
 
 ## `tests/`
 
 | Pasta / arquivo | Papel |
 |---|---|
-| `unit/` (16) | Regras puras: caixa (`caixa.rules`), painel (`painel.rules`), auth/rotas, env, equipe, permissões, PIN, catálogo, clientes, WhatsApp, ordens, visões, hub, rate limit, primeiro acesso |
-| `integration/` (29) | Postgres real em `lavaos_test`: caixa (`caixa`, `caixa-actions`, `caixa-concorrencia`), despesas, schema financeiro, painel (`painel-repo`, `painel-actions`), lock de suítes (`lock-suites`), schema/constraints, guards, contexto, auth, equipe, catálogo, clientes, ordens (abrir, transições, concorrência, edição, fila), público, tempo real, primeiro acesso, seed |
+| `unit/` (17) | Regras puras: comissões (`comissoes.rules`), caixa (`caixa.rules`), painel (`painel.rules`), auth/rotas, env, equipe, permissões, PIN, catálogo, clientes, WhatsApp, ordens, visões, hub, rate limit, primeiro acesso |
+| `integration/` (33) | Postgres real em `lavaos_test`: comissões (`schema-comissoes`, `comissoes-geracao`, `comissoes-acerto`, `comissoes-pagina`), caixa (`caixa`, `caixa-actions`, `caixa-concorrencia`), despesas, schema financeiro, painel (`painel-repo`, `painel-actions`), lock de suítes (`lock-suites`), schema/constraints, guards, contexto, auth, equipe, catálogo, clientes, ordens (abrir, transições, concorrência, edição, fila), público, tempo real, primeiro acesso, seed |
 | `e2e/foundation-*.spec.ts` | Login, equipe e suíte adversarial da Fase 0 |
 | `e2e/operacao-fila.spec.ts`, `operacao-whatsapp.spec.ts`, `operacao-publico.spec.ts` | Fila/Nova OS, botões `wa.me` e link público (projetos `desktop` e `mobile` 390×844) |
 | `e2e/operacao-fluxo.spec.ts` | Fluxo ponta a ponta (recepção → lavador no celular → SSE → pronto → avisar → entregar → link público) e OS cancelada somente leitura (`desktop` e `mobile`) |
 | `e2e/painel.spec.ts` | Painel: SSE sem recarregar, OS atrasada, "Recebido hoje" ao vivo, recepção sem telefone/link público, redirecionamentos (`desktop`, `mobile` e `android-small` 360×640) |
 | `e2e/caixa.spec.ts`, `e2e/despesas.spec.ts` | Fluxo do caixa (abrir → receber Pix + dinheiro com troco → entregar → vale da gaveta → fechar sem diferença → reabrir OS, estornar e "Falta receber") e despesas (`desktop` e `mobile`) |
-| `e2e/dinheiro.ts` | Helpers: `quitarOs`, `liberarCaixaDeHoje`, `semearOsPronta` |
-| `e2e/operacao-lavador.spec.ts` | App do lavador, inclusive nenhum R$/`pagoCentavos`/pagamento com uma OS paga na fila (projetos `android` 412×915 e `android-small` 360×640) |
+| `e2e/comissoes.spec.ts` | Duas OSs entregues → vale da gaveta → acerto pagando a diferença → folha por OS; vale maior deixa dívida, OS acertada não reabre e o próximo acerto desconta; recepção sem acesso (`desktop` e `mobile`, 360 px) |
+| `e2e/dinheiro.ts` | Helpers: `quitarOs`, `liberarCaixaDeHoje`, `semearOsPronta` (com o lavador responsável) |
+| `e2e/operacao-lavador.spec.ts` | App do lavador, inclusive nenhum R$/`pagoCentavos`/pagamento/comissão com uma OS paga na fila e uma entregue dele com comissão no banco (projetos `android` 412×915 e `android-small` 360×640) |
 | `e2e/operacao-primeiro-acesso.spec.ts` | Assistente (`onboarding-desktop` e `onboarding-mobile`, servidor `:3101`) |
 | `e2e/global-setup.ts`, `e2e/login.ts` | Zera `lavaos_test`, migra (e copia as migrations para o schema `onboarding`), cria fixtures com segredos por execução; helpers de login |
 | `helpers/` | `test-db.ts` (fonte única das URLs + trava), `db.ts`, `fixtures.ts`, `auth.ts`, `http.ts`, `ordens.ts`, `empty.ts` |

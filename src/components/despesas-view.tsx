@@ -13,7 +13,7 @@ import { cancelarDespesaAction, lancarDespesaAction, marcarComoPagaAction, salva
 import type { Categoria, Despesa } from '@/modules/despesas/despesas.repo';
 import { cn, SEM_CONEXAO } from '@/lib/utils';
 
-type ComCategoria = Despesa & { categoria: string };
+type ComCategoria = Despesa & { categoria: string; deComissao: boolean };
 const ddmm = (data: string) => `${data.slice(8, 10)}/${data.slice(5, 7)}`;
 const campoSelect = 'block min-h-12 w-full rounded-xl border-[1.5px] border-linha bg-white px-3.5 text-base text-tinta';
 const seguro = (acao: () => Promise<ActionResult<unknown>>) => (): Promise<ActionResult<unknown>> => acao().catch(() => SEM_CONEXAO);
@@ -67,7 +67,7 @@ export function DespesasView({ hoje, despesas, contas, categorias, caixaAberto }
               <Linha d={d}>
                 {d.canceladaEm ? `Cancelada: ${d.motivoCancelamento}` : d.pagoEm ? `Paga em ${ddmm(dataDoCaixa(new Date(d.pagoEm)))}${d.caixaId ? ' com dinheiro do caixa' : ''}` : `A pagar até ${ddmm(d.vencimento!)}`}
               </Linha>
-              {!d.canceladaEm && (
+              {!d.canceladaEm && !d.deComissao && (
                 <Button variante="secundario" disabled={pendente} onClick={() => onCancelar(d.id)} aria-label={`Cancelar ${d.descricao}`}>
                   Cancelar
                 </Button>
@@ -220,7 +220,7 @@ function LancarDespesa({ hoje, categorias, caixaAberto }: { hoje: string; catego
 function CategoriaForm({ categoria }: { categoria?: Categoria }) {
   const { erros, erro, pendente, enviar } = useEnvio(() => {});
   const sufixo = categoria?.id ?? 'nova';
-  const travada = categoria?.sistema ?? false; // "Comissões" é usada pela Fase 5: o servidor recusa renomear e desativar
+  const travada = categoria?.sistema ?? false; // "Vales" e "Comissões" são usadas pela Fase 5: o servidor recusa renomear e desativar
   return (
     <form
       noValidate

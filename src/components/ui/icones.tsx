@@ -56,6 +56,12 @@ export const IconeDespesas = () => (
     <path d="M9 8h6M9 12h6" />
   </svg>
 );
+export const IconeComissoes = () => (
+  <svg {...base}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M14.8 9.2c-.5-.9-1.6-1.4-2.8-1.4-1.6 0-2.8.9-2.8 2.1 0 2.8 5.8 1.4 5.8 4.2 0 1.2-1.3 2.1-3 2.1-1.3 0-2.4-.6-2.9-1.5M12 6v1.8M12 16.2V18" />
+  </svg>
+);
 export const IconeMais = () => (
   <svg {...base}>
     <circle cx="5" cy="12" r="1.3" />

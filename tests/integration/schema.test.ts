@@ -67,12 +67,13 @@ describe('schema da Fundação', () => {
   it('não cria tabelas de fases futuras', () =>
     withTestDatabase(async (db) => {
       const { rows } = await db.execute<{ table_name: string }>(sql`select table_name from information_schema.tables where table_schema = 'public'`);
-      // Fundação + Better Auth + Fase 1 + Fase 4; qualquer outra tabela é de fase futura
+      // Fundação + Better Auth + Fase 1 + Fase 4 + Fase 5; qualquer outra tabela é de fase futura
       expect(rows.map((r) => r.table_name).sort()).toEqual(
         [
           'account', 'convites', 'credenciais_lavador', 'lava_jatos', 'membros', 'session', 'tentativas_pin_origem', 'user', 'verification',
           'portes', 'servicos', 'precos', 'clientes', 'veiculos', 'ordens_servico', 'os_itens', 'os_eventos', 'os_contadores',
           'caixas', 'pagamentos', 'categorias_despesa', 'despesas',
+          'comissoes', 'vales', 'acertos_comissao',
         ].sort(),
       );
     }));

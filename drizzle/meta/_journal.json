@@ -43,6 +43,20 @@
       "when": 1793493852269,
       "tag": "0005_financeiro",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793500365798,
+      "tag": "0006_comissoes",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793554797906,
+      "tag": "0007_vales_sistema",
+      "breakpoints": true
     }
   ]
 }

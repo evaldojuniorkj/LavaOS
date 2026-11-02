@@ -49,8 +49,8 @@ export async function liberarCaixaDeHoje() {
   }
 }
 
-/** OS pronta de placa nova (porte Grande, Lavagem completa) com o lavador E2E, inserida direto; devolve a placa. */
-export async function semearOsPronta(totalCentavos = 8000) {
+/** OS pronta de placa nova (porte Grande, Lavagem completa, 30 % de comissão) com o lavador dado, inserida direto; devolve a placa. */
+export async function semearOsPronta(totalCentavos = 8000, responsavel = 'Lavador E2E') {
   const l = () => 'ABCDEFGHJKLMNPRTUVWXYZ'[Math.floor(Math.random() * 22)];
   const d = () => String(Math.floor(Math.random() * 10));
   const placa = `C${l()}${l()}${d()}${l()}${d()}${d()}`;
@@ -63,9 +63,9 @@ export async function semearOsPronta(totalCentavos = 8000) {
     const v = await um(`insert into veiculos (tenant_id, placa, porte_id) values ($1, $2, (select id from portes where tenant_id = $1 and nome = 'Grande')) returning id, porte_id`, [t, placa]);
     const os = await um(
       `insert into ordens_servico (tenant_id, numero, veiculo_id, aberta_por, responsavel_id, status, atribuido_em, inicio_lavagem_em, pronto_em, token_publico, subtotal_centavos, total_centavos)
-       values ($1, $2, $3, (select id from membros where tenant_id = $1 and perfil = 'recepcao' limit 1), (select id from membros where tenant_id = $1 and nome_exibicao = 'Lavador E2E'),
+       values ($1, $2, $3, (select id from membros where tenant_id = $1 and perfil = 'recepcao' limit 1), (select id from membros where tenant_id = $1 and nome_exibicao = $6),
          'pronto', now(), now(), now(), $4, $5, $5) returning id`,
-      [t, ultimo, v.id, randomBytes(32).toString('base64url'), totalCentavos],
+      [t, ultimo, v.id, randomBytes(32).toString('base64url'), totalCentavos, responsavel],
     );
     await c.query(
       `insert into os_itens (tenant_id, os_id, servico_id, porte_id, nome_servico, valor_centavos, comissao_tipo, comissao_valor)

@@ -53,11 +53,11 @@ describe('isAuthHttpPathAllowed', () => {
 });
 
 describe('destinoPosLogin', () => {
-  it.each(['/inicio', '/painel', '/fila', '/nova-os', '/clientes', '/configuracoes/equipe', '/configuracoes/catalogo', '/lavador', '/lavador/nova'])('aceita caminho interno conhecido %s', (p) => expect(destinoPosLogin(p)).toBe(p));
+  it.each(['/inicio', '/painel', '/fila', '/nova-os', '/caixa', '/despesas', '/comissoes', '/clientes', '/configuracoes/equipe', '/configuracoes/catalogo', '/lavador', '/lavador/nova'])('aceita caminho interno conhecido %s', (p) => expect(destinoPosLogin(p)).toBe(p));
 
   it.each([
     undefined, '', '/', '//evil.example', '/\\evil.example', '\\evil.example', 'https://evil.example', 'javascript:alert(1)',
-    '/inicio/', '/inicio?x=1', '/inicio#a', '/INICIO', '/inicio/../api/auth/sign-out', '/%2Finicio', ' /inicio', '/api/auth/get-session',
+    '/inicio/', '/inicio?x=1', '/inicio#a', '/INICIO', '/inicio/../api/auth/sign-out', '/%2Finicio', ' /inicio', '/api/auth/get-session', '/comissoes/acerto/00000000-0000-0000-0000-000000000000',
     'toString', '__proto__', ['/inicio', '/configuracoes/equipe'],
   ])('qualquer outro valor vai para /inicio: %j', (p) => expect(destinoPosLogin(p)).toBe('/inicio'));
 });

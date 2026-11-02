@@ -2,7 +2,7 @@ import 'server-only';
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { TenantContext } from '@/lib/auth/types';
 import { getDatabase } from '@/lib/db/client';
-import { categoriasDespesa, despesas } from '@/lib/db/schema';
+import { acertosComissao, categoriasDespesa, despesas, vales } from '@/lib/db/schema';
 import type { Database } from '@/lib/db/types';
 import { dataDoCaixa } from '@/modules/caixa/caixa.rules';
 
@@ -23,9 +23,12 @@ export type Despesa = Pick<typeof despesas.$inferSelect, keyof typeof camposDesp
 export type Categoria = Pick<typeof categoriasDespesa.$inferSelect, 'id' | 'nome' | 'ativo' | 'sistema'>;
 export const camposCategoria = { id: categoriasDespesa.id, nome: categoriasDespesa.nome, ativo: categoriasDespesa.ativo, sistema: categoriasDespesa.sistema };
 
+// vale e acerto só se cancelam (ou não) por Comissões: a tela esconde o "Cancelar"
+const ligadaAComissao = sql<boolean>`(exists (select 1 from ${vales} where ${vales.tenantId} = ${despesas.tenantId} and ${vales.despesaId} = ${despesas.id}) or exists (select 1 from ${acertosComissao} where ${acertosComissao.tenantId} = ${despesas.tenantId} and ${acertosComissao.despesaId} = ${despesas.id}))`;
+
 const comCategoria = (db: Leitor) =>
   db
-    .select({ ...camposDespesa, categoria: categoriasDespesa.nome })
+    .select({ ...camposDespesa, categoria: categoriasDespesa.nome, deComissao: ligadaAComissao })
     .from(despesas)
     .innerJoin(categoriasDespesa, and(eq(categoriasDespesa.tenantId, despesas.tenantId), eq(categoriasDespesa.id, despesas.categoriaId)));
 
