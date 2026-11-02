@@ -185,8 +185,9 @@ Todas as tabelas incluem `id`, `tenant_id`, `created_at`, `updated_at` (omitidos
 ### Comissões
 
 - A regra de comissão é do serviço (`servicos.comissao_tipo` e `comissao_valor`) e é copiada para `os_itens` na inclusão. Não existem regras por lavador nem regra padrão do tenant.
-- **`comissoes`**: `os_item_id`, `os_id`, `membro_id`, `valor_centavos`, `acerto_id` (nulo ⇒ pendente).
-- **`acertos_comissao`**: `membro_id`, `periodo_inicio`, `periodo_fim`, `total_centavos`, `pago_em`, `pago_por`.
+- **`comissoes`**: `os_item_id` (único), `os_id`, `membro_id`, `base_centavos`, `valor_centavos`, `acerto_id` (nulo ⇒ pendente), `gerada_em`.
+- **`vales`** (Fase 5): `membro_id`, `valor_centavos`, `dado_em`, `dado_por`, `despesa_id` (despesa paga da categoria "Vales"), `acerto_id` (nulo ⇒ pendente), `cancelado_em`, `cancelado_por`, `motivo_cancelamento`.
+- **`acertos_comissao`**: `membro_id`, `periodo_inicio`, `periodo_fim`, `comissoes_centavos`, `vales_centavos`, `saldo_anterior_centavos`, `pago_centavos`, `saldo_devedor_centavos`, `despesa_id` (só quando `pago_centavos > 0`), `pago_em`, `pago_por`.
 
 ### Agenda
 
@@ -274,7 +275,9 @@ Geradas na transição para `entregue`, na mesma transação:
    - No serviço de brinde, regra percentual gera zero porque a base é zero; regra fixa mantém o valor contratado. O benefício não altera a regra de remuneração da equipe.
 4. O responsável da OS recebe a comissão inteira de cada item, em um registro de `comissoes` por item. Não há divisão entre lavadores.
 
-**Acerto:** dono/gerente escolhe lavador e período, revisa as comissões pendentes e confirma "Pagar acerto". Na mesma transação: cria `acertos_comissao`, vincula as comissões e cria uma despesa paga na categoria "Comissões".
+**Vale** (adiantamento, Fase 5): dono/gerente lança valor e membro; na mesma transação grava `vales` e uma despesa paga da categoria de sistema "Vales", opcionalmente com o dinheiro do caixa de hoje. Cancelar o vale (só pendente) cancela a despesa junto.
+
+**Acerto:** dono/gerente escolhe o membro e a data final, revisa a prévia e confirma. `comissões` = pendentes de OS entregue até a data; `vales` = vales pendentes até a data; `saldo anterior` = saldo devedor do último acerto do membro; `pago = max(0, comissões − vales − saldo anterior)` e `saldo devedor = max(0, vales + saldo anterior − comissões)` (o membro fica devendo para o próximo acerto). Na mesma transação: cria `acertos_comissao`, vincula comissões e vales e, se `pago > 0`, cria uma despesa paga na categoria "Comissões" (opcionalmente do caixa). O vale já é despesa quando é dado: o acerto nunca o lança de novo.
 
 ### 5.6 Despesas
 
@@ -378,7 +381,7 @@ Cada fase tem seu próprio plano, escrito quando chegar a sua vez, e uma branch 
 | **2. Painel** (concluída) | Painel operacional para dono, gerente e recepção (PC e celular); recebido do dia fica na Fase 4 | Acompanhamento ao vivo |
 | **3. App nativo do lavador** | App Expo (Android e iPhone) com API JSON sobre os mesmos serviços e push | Lavador com app de loja |
 | **4. Dinheiro** (concluída) | Caixa (abrir, receber, fechar, reabrir, estornar), toda OS exige quitação para ser entregue, reabertura de OS entregue, despesas e contas a pagar com saída de dinheiro do caixa; painel ganha o recebido do dia | Substitui o controle de caixa |
-| **5. Comissões** | Geração na entrega a partir da regra do serviço, reabertura remove comissões pendentes e é bloqueada após acerto pago, acertos com despesa automática | Acerto da equipe |
+| **5. Comissões** (concluída) | Geração na entrega a partir da regra do serviço, reabertura remove comissões pendentes e é bloqueada após acerto pago, vales como despesa, acertos com saldo devedor e despesa automática | Acerto da equipe |
 | **6. Gestão** | Agenda e relatórios por período | MVP completo |
 | **7. Avaliação do cliente** | Nota e comentário na página pública, visão para dono e gerente | Feedback do cliente |
 | **8. Produção** | Imagem Docker do app, Compose de produção com Caddy (HTTPS), backup diário, guia de deploy/atualização | Online na VPS |

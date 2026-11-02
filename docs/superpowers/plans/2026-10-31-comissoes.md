@@ -8,7 +8,7 @@
 
 **Tech Stack:** o da Fase 4. Nenhuma dependência nova.
 
-**Estado:** não iniciado. Branch `fase-5-comissoes`, a partir de `fase-4-dinheiro` (PR #2).
+**Estado:** concluído em 2026-11-01 (Tasks 1–6), aguardando a revisão final da fase. Branch `fase-5-comissoes`, a partir de `fase-4-dinheiro` (PR #2); PR #3. CI (`pnpm verify:operacao`) verde: lint, typecheck, 612 testes unit+integration (50 arquivos), build e 170 E2E.
 
 **Spec:** [Especificação do MVP](../specs/2026-09-30-lavaos-mvp-design.md) §4 Comissões, §5.2 (reabrir), §5.5. [Roteiro](2026-10-31-roteiro.md), Fase 5 e decisões de 2026-10-31.
 
@@ -78,8 +78,8 @@
 
 ### Task 6: E2E e fechamento da fase
 
-- [ ] `tests/e2e/comissoes.spec.ts`: duas OSs entregues para o mesmo lavador (com caixa via helpers de `tests/e2e/dinheiro.ts`), um vale com dinheiro do caixa, prévia e acerto pagando a diferença, segundo cenário com vale maior deixando dívida e o próximo acerto descontando; gerente tenta reabrir OS já acertada → mensagem; recepção em `/comissoes` → acesso negado; 360 px sem rolagem. `operacao-lavador.spec.ts`: lavador continua sem R$ e sem `comissao` nas respostas.
-- [ ] `pnpm verify:operacao`; README (Fase 5), CODEBASE_MAP, spec (§4 vales, §9 concluída), roteiro, Estado deste plano → commit `docs: fecha a fase 5`.
+- [x] `tests/e2e/comissoes.spec.ts`: duas OSs entregues para o mesmo lavador (com caixa via helpers de `tests/e2e/dinheiro.ts`), um vale com dinheiro do caixa, prévia e acerto pagando a diferença, segundo cenário com vale maior deixando dívida e o próximo acerto descontando; gerente tenta reabrir OS já acertada → mensagem; recepção em `/comissoes` → acesso negado; 360 px sem rolagem. `operacao-lavador.spec.ts`: lavador continua sem R$ e sem `comissao` nas respostas.
+- [x] `pnpm verify:operacao`; README (Fase 5), CODEBASE_MAP, spec (§4 vales, §9 concluída), roteiro, Estado deste plano → commit `docs: fecha a fase 5`.
 
 ## Fora desta fase (decidido)
 
