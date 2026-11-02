@@ -85,7 +85,7 @@ test('duas OSs entregues, vale da gaveta e acerto pagando a diferença; o detalh
   await page.setViewportSize({ width: 360, height: 740 });
   await semRolagemHorizontal(page);
 
-  await membro.getByRole('link', { name: `Imprimir acerto de ${ddmmaaaa} de ${lavador}` }).click();
+  await membro.getByRole('link', { name: `Imprimir acerto de ${ddmmaaaa}, pago R$ 29,00, de ${lavador}` }).click();
   await expect(page.getByRole('heading', { name: `Acerto de ${lavador}`, level: 1 })).toBeVisible();
   const porOs = page.getByRole('region', { name: 'Comissões por OS' }).getByRole('listitem');
   await expect(porOs).toHaveCount(2);

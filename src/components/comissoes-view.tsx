@@ -75,7 +75,7 @@ export function ComissoesView({ hoje, caixaAberto, membros, ativos }: { hoje: st
                           {ddmm(a.periodoInicio)} a {ddmm(a.periodoFim)} · comissões {formatarReais(a.comissoesCentavos)} · vales {formatarReais(a.valesCentavos)}
                         </p>
                       </div>
-                      <Link href={`/comissoes/acerto/${a.id}`} className={LINK_BOTAO} aria-label={`Imprimir acerto de ${ddmmaaaa(dia)} de ${m.nome}`}>
+                      <Link href={`/comissoes/acerto/${a.id}`} className={LINK_BOTAO} aria-label={`Imprimir acerto de ${ddmmaaaa(dia)}, pago ${formatarReais(a.pagoCentavos)}, de ${m.nome}`}>
                         Imprimir
                       </Link>
                     </li>
