@@ -1,0 +1,13 @@
+node_modules
+.next
+.env*
+*.xlsx
+test-results
+playwright-report
+coverage
+tests
+# config do Playwright importa tests/: sem ela o type check do `next build` falharia
+playwright.config.ts
+.git
+.superpowers
+*.tsbuildinfo
